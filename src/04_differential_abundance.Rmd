@@ -1,0 +1,448 @@
+---
+title: "Differential abundance at genus and ASV levels"
+output:
+  html_notebook:
+    df_print: paged
+    code_folding: hide
+  editor_options: 
+    chunk_output_type: inline
+---
+```{r include=FALSE}
+library(qiime2R)
+library(ggeasy)
+library(phyloseq)
+library(Biostrings)
+library(ggsignif)
+library(ggeasy)
+library(ggpubr)
+library(readxl)
+library(patchwork)
+library(DESeq2)
+library(ALDEx2)
+library(microbiome) 
+library(vegan)
+library(ANCOMBC)
+library(glue)
+library(ggstatsplot)
+library(beeswarm)
+library(msa)
+library(here)
+library(ggtext)
+library(kableExtra)
+library(tidyHeatmap)
+library(SpiecEasi)
+library(NetCoMi)
+library(igraph)
+library(tidygraph)
+library(ggraph)
+library(tidyverse)
+knitr::opts_chunk$set(fig.retina = 1, dpi=450)
+options(dplyr.summarise.inform=F)
+theme_set(theme_bw())
+load(here('src/16_and_ITS_import.RData'))
+```
+```{r setup-chunk, include=FALSE}
+knitr::opts_chunk$set(dev = c('svg', 'png'),
+                      dpi = 300,
+                      echo = FALSE)
+
+```
+```{r include=FALSE}
+knitr::opts_chunk$set(fig.retina = 1, dpi=450, warning = FALSE)
+```
+
+```{r}
+# Define helper functions
+include_ref_level = function(comparison){
+  fungi_numerators = str_subset(comparison, 'Fungal') %>%
+    str_remove('Fungal_Treatment') %>% unique()
+  fungi_ref = setdiff(c('Control', 'K49', 'Tox4', 'Mix'), fungi_numerators)
+  if_else(str_detect(comparison, '[.:]'), comparison,
+    str_replace_all(comparison, 
+                    c('(Corn.*)'='\\1_vs_B73',
+                      '(Tissue_Extraction.*)'='\\1_vs_Endobiota',
+                      '(Fungal.*)'='\\1_vs_fungi_ref')) %>%
+      str_remove('(Corn_Genotype|Tissue_Extraction|Fungal_Treatment)') %>%
+      str_replace('fungi_ref', fungi_ref))}
+get_num_DE = function(ancom_res, seq_type){
+  ancom_res$res$diff_abn %>% colSums() %>% enframe() %>% 
+                         mutate(seq_type = seq_type) %>%
+                         rename(comparison = name) %>%
+  mutate(comparison = include_ref_level(comparison))
+}
+get_significant_log2fc = function(ancom_res, ps, tax_level){
+  log2fc = data.frame(ancom_res$res$lfc * ancom_res$res$diff_ab) %>% 
+    rownames_to_column('feature_id') %>%
+    pivot_longer(-feature_id, names_to = 'comparison', values_to = 'beta') %>%
+    #Converted natural log to log base 2 as that easier to interpret and more common
+    #log2(16) == (log(16) / log(2)) https://www.purplemath.com/modules/logrules5.htm
+    mutate(log2fc = beta / log(2)) %>%
+    select(-beta)
+  se = data.frame(ancom_res$res$se * ancom_res$res$diff_ab) %>% 
+    rownames_to_column('feature_id') %>%
+    pivot_longer(-feature_id, names_to = 'comparison', values_to = 'se') %>%
+    mutate(se = se / log(2))
+  tax = ps %>% get_tax() %>% select(feature_id, all_of(tax_level))
+  df = log2fc %>% 
+    left_join(se, by=c('feature_id', 'comparison')) %>%
+    left_join(tax, by='feature_id') %>%
+    group_by(!!as.name(tax_level)) %>%
+    filter(!all(log2fc == 0)) %>%
+    ungroup() %>%
+    mutate(comparison = include_ref_level(comparison)) %>%
+    mutate(comparison = str_replace(comparison, '\\.', ':')) 
+  df
+}
+```
+```{r}
+## Downloaded organism ecosystem classification data from JGI GOLD - https://gold.jgi.doe.gov/download?mode=cv_excel 
+jgi_gold = readxl::read_excel(here('data', 'goldData.xlsx'), sheet='Organism') %>% 
+  janitor::clean_names() %>%
+  rename_with(~str_remove(.x, 'organism_'))
+collapse_jgi_cols = . %>% 
+  reframe(ecosystem_category = str_flatten(unique(ecosystem_category), collapse=';'),
+          ecosystem_subtype = str_flatten(unique(ecosystem_subtype), collapse=';'),
+          sample_collection_site = str_flatten(unique(sample_collection_site), collapse=';'))
+jgi_gold_species_collapsed = jgi_gold %>% 
+  group_by(ncbi_species) %>%
+  collapse_jgi_cols() %>% 
+  rename(Species = ncbi_species) %>%
+  mutate(Species = str_replace_all(Species, ' ', '_'))
+jgi_gold_genus_collapsed = jgi_gold %>% 
+  group_by(ncbi_genus) %>%
+  collapse_jgi_cols() %>% 
+  rename(Genus = ncbi_genus) %>%
+  mutate(Genus = str_replace_all(Genus, ' ', '_'))
+```
+
+Calculated differential abundance at genus, species, and ASV levels.
+```{r}
+run_ancom = function(ps){
+    ancombc(ps,
+            formula='Corn_Genotype + Fungal_Treatment + Tissue_Extraction + Fungal_Treatment:Corn_Genotype', 
+            neg_lb = TRUE, prv_cut=0.10)
+  }
+ancom_res_asv = ps_prevf %>% map(run_ancom)
+ancom_res_asv_mix_ref = ps_prevf %>% map(
+  ~speedyseq::mutate_sample_data(.x, Fungal_Treatment = relevel(Fungal_Treatment, 'Mix')) %>%
+    run_ancom)
+ancom_res_asv_k49_ref = ps_prevf %>% map(
+  ~speedyseq::mutate_sample_data(.x, Fungal_Treatment = relevel(Fungal_Treatment, 'K49')) %>%
+    run_ancom)
+ancom_res_species = ps_species %>% map(run_ancom)
+ancom_res_species_mix_ref = ps_species %>% map(
+  ~speedyseq::mutate_sample_data(.x, Fungal_Treatment = relevel(Fungal_Treatment, 'Mix')) %>%
+    run_ancom)
+ancom_res_species_k49_ref = ps_species %>% map(
+  ~speedyseq::mutate_sample_data(.x, Fungal_Treatment = relevel(Fungal_Treatment, 'K49')) %>%
+    run_ancom)
+ancom_res_genus = ps_genus %>% map(run_ancom)
+ancom_res_genus_mix_ref = ps_genus %>% map(
+  ~speedyseq::mutate_sample_data(.x, Fungal_Treatment = relevel(Fungal_Treatment, 'Mix')) %>%
+    run_ancom)
+ancom_res_genus_k49_ref = ps_genus %>% map(
+  ~speedyseq::mutate_sample_data(.x, Fungal_Treatment = relevel(Fungal_Treatment, 'K49')) %>%
+    run_ancom)
+```
+
+```{r, fig.width=12, fig.height=8}
+ancom_res_genus_df = pmap(
+  list(ancom_res_genus, ps_genus, rep('Genus', length(ancom_res_genus))),
+       get_significant_log2fc)
+ancom_res_genus_df_mix_ref = pmap(
+  list(ancom_res_genus_mix_ref, ps_genus, rep('Genus', length(ancom_res_genus_mix_ref))),
+       ~get_significant_log2fc(...) %>% filter(comparison %in% c('K49_vs_Mix', 'Tox4_vs_Mix')) %>% 
+    group_by(feature_id) %>% filter(!all(log2fc == 0)) %>% ungroup())
+ancom_res_genus_df_k49_ref = pmap(
+  list(ancom_res_genus_k49_ref, ps_genus, rep('Genus', length(ancom_res_genus_k49_ref))),
+       ~get_significant_log2fc(...) %>% filter(comparison %in% c('Tox4_vs_K49')) %>% 
+    group_by(feature_id) %>% filter(!all(log2fc == 0)) %>% ungroup())
+ancom_res_genus_df = pmap(list(ancom_res_genus_df, ancom_res_genus_df_mix_ref, ancom_res_genus_df_k49_ref), 
+                          ~bind_rows(...))
+
+ancom_res_species_df = pmap(
+  list(ancom_res_species, ps_species, rep('Species', length(ancom_res_species))),
+       get_significant_log2fc)
+ancom_res_species_df_mix_ref = pmap(
+  list(ancom_res_species_mix_ref, ps_species, rep('Species', length(ancom_res_species_mix_ref))),
+       ~get_significant_log2fc(...) %>% filter(comparison %in% c('K49_vs_Mix', 'Tox4_vs_Mix')) %>% 
+    group_by(feature_id) %>% filter(!all(log2fc == 0)) %>% ungroup())
+ancom_res_species_df_k49_ref = pmap(
+  list(ancom_res_species_k49_ref, ps_species, rep('Species', length(ancom_res_species_k49_ref))),
+       ~get_significant_log2fc(...) %>% filter(comparison %in% c('Tox4_vs_K49')) %>% 
+    group_by(feature_id) %>% filter(!all(log2fc == 0)) %>% ungroup())
+ancom_res_species_df = pmap(list(ancom_res_species_df, ancom_res_species_df_mix_ref, ancom_res_species_df_k49_ref), 
+                          ~bind_rows(...))
+
+ancom_res_asv_df = pmap(
+  list(ancom_res_asv, ps_prevf, rep('feature_id', length(ancom_res_asv))),
+       get_significant_log2fc)
+ancom_res_asv_df_mix_ref = pmap(
+  list(ancom_res_asv_mix_ref, ps_prevf, rep('feature_id', length(ancom_res_asv_mix_ref))),
+       ~get_significant_log2fc(...) %>% filter(comparison %in% c('K49_vs_Mix', 'Tox4_vs_Mix')) %>% 
+    group_by(feature_id) %>% filter(!all(log2fc == 0)) %>% ungroup())
+ancom_res_asv_df_k49_ref = pmap(
+  list(ancom_res_asv_k49_ref, ps_prevf, rep('feature_id', length(ancom_res_asv_k49_ref))),
+       ~get_significant_log2fc(...) %>% filter(comparison %in% c('Tox4_vs_K49')) %>% 
+    group_by(feature_id) %>% filter(!all(log2fc == 0)) %>% ungroup())
+ancom_res_asv_df = pmap(list(ancom_res_asv_df, ancom_res_asv_df_mix_ref, ancom_res_asv_df_k49_ref), 
+                          ~bind_rows(...))
+write_ancom_res = function(df, seq_type, tax_level){
+  df = df %>% 
+    select(-se) %>% 
+    mutate(log2fc = round(log2fc, 2)) %>% 
+    pivot_wider(names_from = 'comparison', values_from = log2fc) %>% 
+    replace(is.na(.), 0) %>%
+    left_join(map(ps_phylum_filt, get_tax) %>% bind_rows()) 
+  if (tax_level == 'genus'){
+    df = df %>% left_join(jgi_gold_genus_collapsed, by='Genus')
+  } else{
+    df = df %>% left_join(jgi_gold_species_collapsed, by='Species')
+  }
+    write_csv(df, here(str_glue('output/differential_abundance/{seq_type}_differential_abundant_{tax_level}.csv')))
+}
+```
+Calculate number of taxa that are differentially abundant for each level
+```{r}
+number_DE_asv = imap(ancom_res_asv, get_num_DE) %>%
+  bind_rows() %>% pivot_wider(names_from = seq_type, values_from = value)
+number_DE_asv_mix_ref = imap(ancom_res_asv_mix_ref, get_num_DE) %>%
+  bind_rows() %>% pivot_wider(names_from = seq_type, values_from = value) %>%
+  filter(comparison %in% c('K49_vs_Mix', 'Tox4_vs_Mix'))
+number_DE_asv_k49_ref = imap(ancom_res_asv_k49_ref, get_num_DE) %>%
+  bind_rows() %>% pivot_wider(names_from = seq_type, values_from = value) %>%
+  filter(comparison %in% c('Tox4_vs_K49'))
+number_DE_asv = bind_rows(number_DE_asv, number_DE_asv_mix_ref, number_DE_asv_k49_ref)
+
+number_DE_species = imap(ancom_res_species, get_num_DE) %>%
+  bind_rows() %>% pivot_wider(names_from = seq_type, values_from = value)
+number_DE_species_mix_ref = imap(ancom_res_species_mix_ref, get_num_DE) %>%
+  bind_rows() %>% pivot_wider(names_from = seq_type, values_from = value) %>%
+  filter(comparison %in% c('K49_vs_Mix', 'Tox4_vs_Mix'))
+number_DE_species_k49_ref = imap(ancom_res_species_k49_ref, get_num_DE) %>%
+  bind_rows() %>% pivot_wider(names_from = seq_type, values_from = value) %>%
+  filter(comparison %in% c('Tox4_vs_K49'))
+number_DE_species = bind_rows(number_DE_species, number_DE_species_mix_ref, number_DE_species_k49_ref)
+
+number_DE_genus = imap(ancom_res_genus, get_num_DE) %>%
+  bind_rows() %>% pivot_wider(names_from = seq_type, values_from = value) 
+number_DE_genus_mix_ref = imap(ancom_res_genus_mix_ref, get_num_DE) %>%
+  bind_rows() %>% pivot_wider(names_from = seq_type, values_from = value) %>%
+  filter(comparison %in% c('K49_vs_Mix', 'Tox4_vs_Mix'))
+number_DE_genus_k49_ref = imap(ancom_res_genus_k49_ref, get_num_DE) %>%
+  bind_rows() %>% pivot_wider(names_from = seq_type, values_from = value) %>%
+  filter(comparison %in% c('Tox4_vs_K49'))
+number_DE_genus = bind_rows(number_DE_genus, number_DE_genus_mix_ref, number_DE_genus_k49_ref)
+
+number_DE_genus %>%
+  left_join(number_DE_species, by='comparison', suffix = c('_genus', '_species')) %>%
+  left_join(number_DE_asv %>% rename_with(~str_replace(.x, '(16S|ITS)', '\\1_ASV')), 
+            by='comparison') %>% 
+  mutate(comparison = factor(comparison,
+ levels=c('CML322_vs_B73','K49_vs_Control','Mix_vs_Control','Tox4_vs_Control','Epibiota_vs_Endobiota',
+          'K49_vs_Mix','Tox4_vs_Mix','Tox4_vs_K49','Corn_GenotypeCML322:Fungal_TreatmentK49',
+          'Corn_GenotypeCML322:Fungal_TreatmentMix','Corn_GenotypeCML322:Fungal_TreatmentTox4'))) %>%
+  arrange(comparison) %>%
+  kbl(format = 'html', col.names = c('comparison', '16S', 'ITS', '16S', 'ITS', '16S', 'ITS')) %>%
+  add_header_above(c(' ' = 1, 'Genus' = 2, 'Species' = 2, 'ASV' = 2)) %>%
+  kable_classic(full_width = F, html_font = "Times New Roman")
+```
+<br><br><br>
+Genus level bar plots showing the log2 fold change for taxa that are differentially abundant at an adjusted pvalue < 0.05.
+```{r, fig.width=12, fig.height=8}
+pwalk(list(ancom_res_genus_df, ps_genus, names(ps_genus)),
+  function(ancom_res_df, ps, seq_type){
+    print(ggplot(ancom_res_df %>% 
+                   mutate(comparison = factor(comparison,
+ levels=c('CML322_vs_B73','K49_vs_Control','Mix_vs_Control','Tox4_vs_Control','Epibiota_vs_Endobiota',
+          'K49_vs_Mix','Tox4_vs_Mix','Tox4_vs_K49','Corn_GenotypeCML322:Fungal_TreatmentK49',
+          'Corn_GenotypeCML322:Fungal_TreatmentMix','Corn_GenotypeCML322:Fungal_TreatmentTox4'))) %>% 
+   complete(comparison, Genus, fill=list(log2fc=0, se=0))%>%
+    filter(!str_detect(Genus, 'uncultured')), 
+ aes(comparison, log2fc, fill = comparison)) +
+      geom_col(position=position_dodge(1), colour="black") +
+      geom_errorbar(aes(ymin = log2fc - se, ymax = log2fc + se), color = "black",
+                    position = position_dodge(1), width=0.4) +
+      scale_fill_manual(values=mpn65) +
+      facet_wrap(~Genus) + 
+      theme_bw() +
+      theme(axis.title.x=element_blank(),
+            axis.text.x=element_blank(),
+            axis.ticks.x=element_blank(),
+            strip.text = element_text(face = "italic")) +
+      labs(x = NULL, y = "Log2 fold change", 
+           title = glue("{seq_type} Log2 fold change for the main effects at the genus level")))
+})
+```
+
+Vizualized some of the genera with a significant interaction effect.
+```{r, fig.width=6, fig.height=3}
+ggplot(ancom_res_genus_df$`16S` %>% 
+                   mutate(comparison = factor(comparison,
+ levels=c('CML322_vs_B73','K49_vs_Control','Mix_vs_Control','Tox4_vs_Control','Epibiota_vs_Endobiota',
+          'K49_vs_Mix','Tox4_vs_Mix','Tox4_vs_K49','Corn_GenotypeCML322:Fungal_TreatmentK49',
+          'Corn_GenotypeCML322:Fungal_TreatmentMix','Corn_GenotypeCML322:Fungal_TreatmentTox4'))) %>% 
+   complete(comparison, Genus, fill=list(log2fc=0, se=0)) %>% 
+         filter(Genus %in% c('Listeria', 'Kosakonia', 'Enterobacter')) %>%
+         mutate(comparison = fct_relevel(comparison, 'CML322_vs_B73', after=3)), 
+       aes(comparison, log2fc, fill = comparison)) +
+  geom_col(position=position_dodge(1), colour="black") +
+  geom_errorbar(aes(ymin = log2fc - se, ymax = log2fc + se), color = "black",
+                position = position_dodge(1), width=0.4) +
+  facet_wrap(~Genus) + 
+  scale_fill_manual(values=mpn65) +
+  theme_bw() +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        strip.text = element_text(face = "italic")) +
+  labs(x = NULL, y = "Log2 fold change", 
+           title = glue("16S Log2 fold change at the genus level"))
+```
+Interactions can be difficult to interpret, so I plotted the ALR (additive log ratio transformed) abundances of the above significant interactions. The interaction term can be interpreted as a difference in differences, for example Corn_GenotypeCML322:Fungal_TreatmentK49 is the effect of K49 treatment vs control in CML322 minus the effect of K49 treatment vs control in B73. The reference levels used are B73 for Corn_Genotype and Control for Fungal_Treatment.
+```{r, fig.height=8, fig.width=6}
+ps_genus_clr$`16S` %>% get_counts() %>%
+  pivot_longer(-feature_id, names_to = 'SampleID', values_to = 'ALR_transformed_counts') %>%
+  left_join(metadata, by='SampleID') %>%
+  left_join(ps_genus_ra$`16S` %>% get_tax(), by='feature_id') %>%
+  filter(Genus %in% c('Listeria', 'Kosakonia', 'Enterobacter')) %>%
+  group_split(Genus, .keep=TRUE) %>%
+  map(~.x %>% 
+    ggplot(aes(Fungal_Treatment, ALR_transformed_counts)) +
+    geom_boxplot(outlier.shape = NA, aes(fill = Fungal_Treatment)) +
+    ggbeeswarm::geom_quasirandom(alpha = 0.3, width=0.2, groupOnX=TRUE) +
+    facet_grid(Corn_Genotype~Fungal_Treatment, scales = 'free_x') +
+    theme_bw() +
+    theme(axis.text.x=element_text(angle=90,hjust=1)) +
+    labs(title=unique(.$Genus))
+  ) %>% wrap_plots(ncol = 1)
+```
+```{r, fig.height=4, fig.width=6}
+ps_species_alr$`16S` %>% get_counts() %>%
+  pivot_longer(-feature_id, names_to = 'SampleID', values_to = 'ALR_transformed_counts') %>%
+  left_join(metadata, by='SampleID') %>%
+  left_join(ps_species_ra$`16S` %>% get_tax(), by='feature_id') %>%
+  filter(Species == 'Pantoea_ananatis') %>% 
+  ggplot(aes(Fungal_Treatment, ALR_transformed_counts)) +
+  geom_boxplot(outlier.shape = NA, aes(fill = Fungal_Treatment)) +
+  ggbeeswarm::geom_quasirandom(alpha = 0.3, width=0.2, groupOnX=TRUE) +
+  facet_grid(Corn_Genotype~Fungal_Treatment, scales = 'free_x') +
+  theme_bw() +
+  theme(axis.text.x=element_text(angle=90,hjust=1))
+```
+
+<br><br><br>
+Species level bar plots showing the log2 fold change for taxa that are differentially abundant at an adjusted P value < 0.05.
+```{r, fig.width=12, fig.height=6}
+ancom_res_species_df = pmap(
+  list(ancom_res_species, ps_species, rep('Species', length(ancom_res_species))),
+       get_significant_log2fc)
+pwalk(list(ancom_res_species_df, ps_species, names(ancom_res_species)), 
+     function(ancom_res_df, ps, seq_type){
+    print(ggplot(ancom_res_df %>% 
+                   mutate(Species = str_replace_all(Species, '_', ' '),
+                          comparison = factor(comparison,
+ levels=c('CML322_vs_B73','K49_vs_Control','Mix_vs_Control','Tox4_vs_Control','Epibiota_vs_Endobiota',
+          'K49_vs_Mix','Tox4_vs_Mix','Tox4_vs_K49','Corn_GenotypeCML322:Fungal_TreatmentK49',
+          'Corn_GenotypeCML322:Fungal_TreatmentMix','Corn_GenotypeCML322:Fungal_TreatmentTox4'))) %>% 
+      complete(comparison, Species, fill=list(log2fc=0, se=0)) %>%
+    filter(!str_detect(Species, 'uncultured')),
+                 aes(comparison, log2fc, fill = comparison))  +
+      geom_col(position=position_dodge(1), colour="black") +
+      geom_errorbar(aes(ymin = log2fc - se, ymax = log2fc + se), color = "black",
+                    position = position_dodge(1), width=0.4) +
+      scale_fill_manual(values=mpn65) +
+      facet_wrap(~Species) + 
+      theme_bw() +
+      theme(axis.title.x=element_blank(),
+            axis.text.x=element_blank(),
+            axis.ticks.x=element_blank(),
+            strip.text = element_text(face = "italic")) +
+      labs(x = NULL, y = "Log2 fold change", 
+           title = glue("{seq_type} Log2 fold change at the species level"))) 
+})
+```
+```{r, fig.width=12, fig.height=8}
+pwalk(list(ancom_res_species_df, ps_species, names(ps_species)),
+  function(ancom_res_df, ps, seq_type){
+    print(ggplot(ancom_res_df %>% 
+                   mutate(Species = str_replace_all(Species, '_', ' '),
+                          comparison = factor(comparison,
+ levels=c('CML322_vs_B73','K49_vs_Control','Mix_vs_Control','Tox4_vs_Control','Epibiota_vs_Endobiota',
+          'K49_vs_Mix','Tox4_vs_Mix','Tox4_vs_K49','Corn_GenotypeCML322:Fungal_TreatmentK49',
+          'Corn_GenotypeCML322:Fungal_TreatmentMix','Corn_GenotypeCML322:Fungal_TreatmentTox4'))) %>% 
+   complete(comparison, Species, feature_id, fill=list(log2fc=0, se=0)), 
+ aes(comparison, log2fc, fill = comparison)) +
+      geom_col(position=position_dodge(1), colour="black") +
+      geom_errorbar(aes(ymin = log2fc - se, ymax = log2fc + se), color = "black",
+                    position = position_dodge(1), width=0.4) +
+      scale_fill_manual(values=mpn65) +
+      facet_wrap(~Species) + 
+      theme_bw() +
+      theme(axis.title.x=element_blank(),
+            axis.text.x=element_blank(),
+            axis.ticks.x=element_blank(),
+            strip.text = element_text(face = "italic")) +
+      labs(x = NULL, y = "Log2 fold change", 
+           title = glue("{seq_type} Log2 fold change at the species level")))
+})
+```
+<br><br><br>
+Included another plot visualizing the differential abundance results. Positive log2 fold changes are represented in red, negative in green.
+```{r, fig.width=6, fig.height=7}
+pwalk(list(ancom_res_genus_df, names(ancom_res_genus)),
+function(ancom_res_df, seq_type){
+  df = ancom_res_df %>% 
+    mutate(comparison = factor(comparison,
+      levels=c('CML322_vs_B73','K49_vs_Control','Mix_vs_Control','Tox4_vs_Control','Epibiota_vs_Endobiota',
+          'K49_vs_Mix','Tox4_vs_Mix','Tox4_vs_K49','Corn_GenotypeCML322:Fungal_TreatmentK49',
+          'Corn_GenotypeCML322:Fungal_TreatmentMix','Corn_GenotypeCML322:Fungal_TreatmentTox4'))) %>% 
+    complete(comparison, Genus, fill=list(log2fc=0, se=0)) %>%
+    filter(!str_detect(Genus, 'uncultured')) %>%
+    mutate(Genus = str_remove(Genus, '-.*'))
+  col_fun = circlize::colorRamp2(c(max(df$log2fc), 0, min(df$log2fc)), 
+                                 c('green', 'black', 'red'))
+  suppressWarnings(print(
+    df %>% 
+      heatmap(Genus, comparison, log2fc, palette_value = col_fun,
+              column_names_gp = grid::gpar(fontsize = 9),
+              column_title ='', na_col='black', 
+              row_names_gp = grid::gpar(fontsize = 8, fontface = "italic")) %>%
+      wrap_heatmap() +
+      ggtitle(glue("{seq_type} log2 fold change at the genus level")) 
+    ))
+})
+```
+<br><br><br>
+Same as above but showing species level
+```{r, fig.width=6, fig.height=6}
+pwalk(list(ancom_res_species_df, names(ancom_res_species)),
+function(ancom_res_df, seq_type){
+  df = ancom_res_df %>% 
+    mutate(comparison = factor(comparison,
+      levels=c('CML322_vs_B73','K49_vs_Control','Mix_vs_Control','Tox4_vs_Control','Epibiota_vs_Endobiota',
+          'K49_vs_Mix','Tox4_vs_Mix','Tox4_vs_K49','Corn_GenotypeCML322:Fungal_TreatmentK49',
+          'Corn_GenotypeCML322:Fungal_TreatmentMix','Corn_GenotypeCML322:Fungal_TreatmentTox4'))) %>% 
+    complete(comparison, Species, fill=list(log2fc=0, se=0)) %>%
+    filter(!str_detect(Species, 'uncultured')) %>%
+    mutate(Species = str_remove(Species, '-.*'),
+           Species = str_replace_all(Species, '_', ' '))
+  col_fun = circlize::colorRamp2(c(max(df$log2fc), 0, min(df$log2fc)), 
+                                 c('green', 'black', 'red'))
+  suppressWarnings(print(
+    df %>% 
+      heatmap(Species, comparison, log2fc, palette_value = col_fun,
+              column_names_gp = grid::gpar(fontsize = 9),
+              column_title ='', na_col='black', 
+              column_names_gp = grid::gpar(fontsize = 8),
+              row_names_gp = grid::gpar(fontsize = 7, fontface = "italic")) %>%
+      wrap_heatmap() +
+      ggtitle(glue("{seq_type} log2 fold change at the species level")) 
+    ))
+})
+```
+```{r}
+save.image(here('src/16_and_ITS_differential_abundance.RData'))
+```
+
+

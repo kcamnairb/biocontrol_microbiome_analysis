@@ -1,0 +1,185 @@
+---
+title: "Beta diversity"
+output:
+  html_notebook:
+    df_print: paged
+    code_folding: hide
+  editor_options: 
+    chunk_output_type: inline
+---
+```{r include=FALSE}
+library(qiime2R)
+library(ggeasy)
+library(phyloseq)
+library(Biostrings)
+library(ggsignif)
+library(ggeasy)
+library(ggpubr)
+library(readxl)
+library(patchwork)
+library(DESeq2)
+library(ALDEx2)
+library(microbiome) 
+library(vegan)
+library(ANCOMBC)
+library(glue)
+library(ggstatsplot)
+library(beeswarm)
+library(msa)
+library(here)
+library(ggtext)
+library(kableExtra)
+library(tidyHeatmap)
+library(SpiecEasi)
+library(NetCoMi)
+library(igraph)
+library(tidygraph)
+library(ggraph)
+library(tidyverse)
+knitr::opts_chunk$set(fig.retina = 1, dpi=450)
+options(dplyr.summarise.inform=F)
+theme_set(theme_bw())
+load(here('src/16_and_ITS_import.RData'))
+```
+
+```{r include=FALSE}
+knitr::opts_chunk$set(fig.retina = 1, dpi=450, warning = FALSE, message = FALSE)
+```
+
+
+```{r, fig.width=12, fig.height=6}
+dists = ps_phylum_filt_rarefied %>% map(
+  ~vegdist(otu_table(.x) %>% as.data.frame() %>% t(), method='bray'))
+pcoas = dists %>% map(ape::pcoa)
+```
+
+The principal coordinate analysis plots below show that for the 16S sequencing, the samples appear to group somewhat by corn variety, whereas for the ITS sequencing the samples seem to group more by the fungal strain treatment.
+```{r, fig.width=10, fig.height=10}
+pcoas %>% 
+  imap(function(pcoa, seq_type){
+    eigs = pcoa$value$Eigenvalues[1:2] / sum(pcoa$value$Eigenvalues)
+    pcoa$vectors[,1:2] %>% as.data.frame() %>% rownames_to_column('SampleID') %>%
+      left_join(metadata, by='SampleID') %>% 
+      mutate(corn_fungal = str_c(Corn_Genotype, Fungal_Treatment, sep='_')) %>%
+      ggplot(aes(x=`Axis.1`, y=`Axis.2`, color=Corn_Genotype, shape=Fungal_Treatment)) +
+      #scale_color_brewer(palette = "Paired") +
+      scale_color_manual(values = mpn65) +
+      geom_point(alpha=0.6, size=3) +
+      theme_bw() +
+      stat_ellipse(aes(group = Corn_Genotype)) +
+      #ggforce::geom_mark_ellipse() +
+      #coord_fixed(max(sqrt(eigs[2] / eigs[1]), 0.3)) +
+      labs(x=paste0('PCo1 (', eigs[1] %>% round(2)*100, '%)'),
+           y=paste0('PCo2 (', eigs[2] %>% round(2)*100, '%)'),
+           title=glue('{seq_type} Bray-Curtis distance'))
+}) %>% wrap_plots(ncol = 1)
+```
+<br><br><br>
+Same data, but highlighting the A. flavus treatments.
+```{r, fig.width=10, fig.height=10}
+pcoas %>% 
+  imap(function(pcoa, seq_type){
+    eigs = pcoa$values$Eigenvalues[1:2] / sum(pcoa$values$Eigenvalues)
+    pcoa$vectors[,1:2] %>% as.data.frame() %>% rownames_to_column('SampleID') %>%
+      left_join(metadata, by='SampleID') %>% 
+      mutate(corn_fungal = str_c(Corn_Genotype, Fungal_Treatment, sep='_')) %>%
+      ggplot(aes(x=`Axis.1`, y=`Axis.2`, color=Fungal_Treatment, shape=Corn_Genotype)) +
+      #scale_color_brewer(palette = "Paired") +
+      scale_color_manual(values = mpn65) +
+      geom_point(alpha=0.6, size=3) +
+      theme_bw() +
+      stat_ellipse(aes(group = Fungal_Treatment)) +
+      #ggforce::geom_mark_ellipse() +
+      #coord_fixed(max(sqrt(eigs[2] / eigs[1]), 0.3)) +
+      labs(x=paste0('PCo1 (', eigs[1] %>% round(2)*100, '%)'),
+           y=paste0('PCo2 (', eigs[2] %>% round(2)*100, '%)'),
+           title=glue('{seq_type} Bray-Curtis distance'))
+}) %>% wrap_plots(ncol = 1)
+```
+<br><br><br><br><br><br>
+The Mantel test calculates the correlation between two dissimilarity matrices. Here it shows that the bacteriome and mycobiome beta diversities are not correlated with each other.
+```{r}
+ps_phylum_filt_common_samples = intersect(ps_phylum_filt$`16S` %>% get_sample_data() %>% pull(SampleID),
+                                          ps_phylum_filt$ITS %>% get_sample_data() %>% pull(SampleID))
+bray_common = ps_phylum_filt %>% map(~prune_samples(ps_phylum_filt_common_samples, .x) %>% 
+  rarefy_even_depth(., sample.size = min(sample_sums(.)), rngseed=1100, replace=FALSE) %>% 
+  otu_table() %>% t() %>% vegdist(method='bray', binary=FALSE))
+mantel(bray_common$`16S`, bray_common$ITS, permutations = 999, method='spearman')
+```
+<br><br><br><br><br><br>
+Used PERMANOVA implemented in adonis to test whether groups of samples were significantly different. 
+<br><br>
+ For 16s and ITS sequencing the fungal strain treatment showed a strong association with microbiota variations with an R^2^ of 0.18 and 0.40 for 16s and ITS respectively. Corn variety had a weak association with microbiota variations in the 16S data with and R^2^ of 0.07. The interaction between corn variety and fungal treatment had a high association with microbiota variations with an R^2^ of 0.22 and 0.14 for 16S and ITS respectively.
+
+```{r}
+get_metadata_for_adonis = function(dist_obj){
+  metadata %>% 
+    arrange(match(SampleID, attr(dist_obj, "Labels"))) %>%
+    filter(SampleID %in% attr(dist_obj, "Labels"))}
+res_adonis = list(
+  '16S' = adonis2(dists$`16S` ~ Fungal_Treatment + Corn_Genotype + Tissue_Extraction + Fungal_Treatment:Corn_Genotype, 
+    data=get_metadata_for_adonis(dists$`16S`), permutations=999),
+  'ITS' = adonis2(dists$ITS ~ Fungal_Treatment + Corn_Genotype + Tissue_Extraction + Fungal_Treatment:Corn_Genotype, 
+    data=get_metadata_for_adonis(dists$ITS), permutations=999))
+res_adonis_df = res_adonis %>% 
+  imap(function(adonis_res, seq_type){
+    broom::tidy(adonis_res) %>%
+      mutate(seq_type = seq_type)}) %>% 
+  bind_rows() %>% 
+  rename(experimental_factors = term) %>%
+  #mutate(R2 = if_else(p.value < 0.05, R2, NA_real_)) %>% 
+  filter(!experimental_factors %in% c('Total', 'Residual')) %>%
+  relocate(seq_type, .before=df)
+res_adonis_df %>% select(`Adonis term` = experimental_factors, p.value, R2, seq_type) %>%
+  mutate(R2 = round(R2, digits = 2)) %>%
+  pivot_wider(names_from = seq_type, values_from = c(p.value, R2)) %>% 
+  relocate(`Adonis term`, R2_16S, p.value_16S, R2_ITS, p.value_ITS) %>%
+  #kbl(format = "html", col.names = c("Adonis term", "$R^{2}$","${P}$ value","$R^{2}$","${P}$ value")) %>% 
+  kbl(format = "html", col.names = c("Adonis term", "R2","P value","R2","P value")) %>%
+  kable_classic(full_width = F, html_font = "Times New Roman") %>%
+  add_header_above(c(' ' = 1, '16S' = 2, 'ITS' = 2)) %>%
+  add_footnote(label='R2 and P values were calculated based on the following formula:
+               "Bray-Curtis Dissimilarity ~ Fungal_Treatment + Corn_Genotype + 
+               Tissue_Extraction + Fungal_Treatment:Corn_Genotype"
+               using 999 permutations in adonis.')
+```
+<br><br>
+Adonis has an assumption of homogenous dispersions, so used betadisper to ensure that each group has homogenous dispersions. All groups except for ITS fungal strain treatments were shown to have homogenous dispersions using betadisper. So, adonis results for ITS fungal strain treatments could be due to differences in dispersions.This makes sense since the fungal treated groups consisted predominantly of the A. flavus ASV that it was treated with.
+
+https://stats.stackexchange.com/questions/314184/betadisper-is-significant-can-i-still-do-adonis-and-anosim
+```{r, fig.height=4, fig.width=6}
+## https://www.researchgate.net/post/Betadisper_and_adonis_in_R_Am_I_interpreting_my_output_correctly
+res_betadisper = dists %>% 
+  imap(function(distance, seq_type){
+    group_cols = c('Fungal_Treatment','Corn_Genotype','Tissue_Extraction')
+    set_names(group_cols) %>%
+    map_dfr(function(group_col){
+      groups = metadata %>% 
+        arrange(match(SampleID, attr(distance, "Labels"))) %>%
+        filter(SampleID %in% attr(distance, "Labels"))
+      groups = groups[[group_col]]
+      res_betadisper = betadisper(distance, groups, type="median")
+      res_permutest = permutest(res_betadisper, permutations = 999, pairwise = TRUE)
+      pval = res_permutest$tab$`Pr(>F)`[1]
+      f = res_permutest$tab$F[1]
+      tibble(pvalue = pval, f = f,
+             seq_type = seq_type,
+             experimental_factor = group_col)
+        })
+      }) %>%
+  bind_rows()
+res_betadisper %>% select(`betadisper term` = experimental_factor, pvalue, f, seq_type) %>%
+  mutate(f = round(f, digits = 2)) %>%
+  pivot_wider(names_from = seq_type, values_from = c(pvalue, f)) %>% 
+  relocate(`betadisper term`,  f_16S, pvalue_16S, f_ITS, pvalue_ITS) %>%
+  #kbl(format = "html", col.names = c("Adonis term", "$R^{2}$","${P}$ value","$R^{2}$","${P}$ value")) %>% 
+  kbl(format = "html", col.names = c("Betadisper term", "F","P value","F","P value")) %>%
+  kable_classic(full_width = F, html_font = "Times New Roman") %>%
+  add_header_above(c(' ' = 1, '16S' = 2, 'ITS' = 2))
+```
+```{r}
+save.image(here('src/16_and_ITS_beta_diversity.RData'))
+```
+
+
+

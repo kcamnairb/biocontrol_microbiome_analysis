@@ -1,0 +1,17 @@
+feature_id,CML322_vs_B73,K49_vs_Control,Mix_vs_Control,Tox4_vs_Control,Epibiota_vs_Endobiota,Corn_GenotypeCML322:Fungal_TreatmentK49,Corn_GenotypeCML322:Fungal_TreatmentMix,Corn_GenotypeCML322:Fungal_TreatmentTox4,K49_vs_Mix,Tox4_vs_Mix,Tox4_vs_K49,Kingdom,Phylum,Class,Order,Family,Genus,Species,ecosystem_category,ecosystem_subtype,sample_collection_site
+faa629f78fc7ddc8ec168ba7cdaa36c7,-0,-8.35,-8.32,-0,-0,0,0,-0,-0,7.06,7.56,Fungi,Ascomycota,Saccharomycetes,Saccharomycetales,Debaryomycetaceae,Meyerozyma,Meyerozyma_caribbica,NA,NA,NA
+e1b6dfa14ab15d95192ee8439b3989af,-0,-5.94,-8.44,-0,-0,-0,0,-0,0,5.89,3.86,Fungi,Ascomycota,Saccharomycetes,Saccharomycetales,Debaryomycetaceae,Meyerozyma,Meyerozyma_caribbica,NA,NA,NA
+cc359c1b499ea069ff2bf454bb9c0e16,3.98,0,0,-0,0,-0,-6.29,-0,0,0,0,Fungi,Ascomycota,Sordariomycetes,Hypocreales,Hypocreales_fam_Incertae_sedis,Sarocladium,Sarocladium_zeae,NA,NA,NA
+0921002c67fc437442b519a8cc5f9317,0,0,0,11.89,-0,-0,0,-13.44,0,11.3,9.4,Fungi,Ascomycota,Sordariomycetes,Hypocreales,Hypocreaceae,Trichoderma,NA,NA,NA,NA
+4624dd9cb6d36815155fba1b6ef9c811,-6.75,-0,-0,-0,-0,0,0,0,0,0,0,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,Aspergillaceae,Penicillium,Penicillium_ochrosalmoneum,NA,NA,NA
+5845c21505005b97a2473deaa8d873da,-0,-3.41,-6.83,-0,2.2,0,0,-0,3.17,4.95,0,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,Aspergillaceae,Penicillium,Penicillium_oxalicum,NA,NA,NA
+b832ed381b71cabe6a1df1cacda67cb1,-0,0,0,6.52,0,0,-0,-6.21,-0,5.86,6.36,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,Trichocomaceae,Talaromyces,NA,NA,NA,NA
+72baecca7bfde7585dc365927414c490,-0,-0,-3.17,5.18,0,0,0,-7.57,-0,7.84,8.34,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,Trichocomaceae,Talaromyces,NA,NA,NA,NA
+0a8f3076724acdaf9dea9db8e6fb6c27,-0,-0,-0,5.81,0,0,0,-6.31,0,7.81,6.52,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,Trichocomaceae,Talaromyces,NA,NA,NA,NA
+b84cd3494d9e72d9f465a68d8db0bfdf,-0,0,0,7.14,0,-0,-0,-6.82,0,6.47,0,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,Trichocomaceae,Talaromyces,Talaromyces_aculeatus,NA,NA,NA
+c6cb0fce33317aabe68e1fc7c7f67e8a,0,0,0,6.46,0,-0,-0,-7.47,0,5.78,5.7,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,NA,NA,NA,NA,NA,NA
+07b3d9cb06226513a11680a166bf61a7,-7.83,-6.03,-7.44,-4.77,0,0,6.58,0,0,2.16,0,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,Aspergillaceae,Aspergillus,Aspergillus_niger,NA,NA,NA
+06ee4aa94b2b7521c7b13c1fb07879bf,-3.19,0,4.19,-0,-0,5.1,-0,0,-0,-8.82,-6.93,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,Aspergillaceae,Aspergillus,Aspergillus_flavus,NA,NA,NA
+588dcc69d3bdba3b6ace9a1b543474f3,-0,0,1.99,0,-0,0,-1.87,0,-0,-2.33,0,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,Aspergillaceae,Aspergillus,Aspergillus_flavus,NA,NA,NA
+d0e6fb65c73f76dc8402dec90cf15f72,0,0,0,0,0,0,0,0,1.58,0,0,Fungi,Ascomycota,Dothideomycetes,Pleosporales,Pleosporaceae,Alternaria,NA,NA,NA,NA
+f238a589635f01ddc3a300a2f6e63322,0,0,0,0,0,0,0,0,-6.79,0,7.03,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,Aspergillaceae,Aspergillus,Aspergillus_flavus,NA,NA,NA

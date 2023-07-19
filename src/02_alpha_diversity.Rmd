@@ -1,0 +1,261 @@
+---
+title: "Alpha diversity"
+output:
+  html_notebook:
+    df_print: paged
+    code_folding: hide
+  editor_options: 
+    chunk_output_type: inline
+---
+
+```{r include=FALSE}
+library(qiime2R)
+library(ggeasy)
+library(phyloseq)
+library(Biostrings)
+library(ggsignif)
+library(ggeasy)
+library(ggpubr)
+library(readxl)
+library(patchwork)
+library(DESeq2)
+library(ALDEx2)
+library(microbiome) 
+library(vegan)
+library(ANCOMBC)
+library(glue)
+library(ggstatsplot)
+library(beeswarm)
+library(msa)
+library(here)
+library(ggtext)
+library(kableExtra)
+library(tidyHeatmap)
+library(SpiecEasi)
+library(NetCoMi)
+library(igraph)
+library(tidygraph)
+library(ggraph)
+library(tidyverse)
+knitr::opts_chunk$set(fig.retina = 1, dpi=450)
+options(dplyr.summarise.inform=F)
+theme_set(theme_bw())
+load(here('src/16_and_ITS_import.RData'))
+```
+```{r setup-chunk, include=FALSE}
+knitr::opts_chunk$set(dev = c('svg', 'png'),
+                      dpi = 300,
+                      echo = FALSE,
+                      cache = TRUE)
+
+```
+```{r}
+alpha_res = ps_phylum_filt_rarefied %>% map(~otu_table(.x) %>% microbiome::diversity(index = 'shannon') %>%
+  rownames_to_column('SampleID'))
+```
+The plot below is investigating the idea that treatment with the biocontrol strain K49 might reduce alpha diversity compared to treatment with the other fungal strains due to it potentially having a higher growth rate. In the 16S alpha diversity comparisons, the mix vs control, and mix vs K49 are the only statistically significant comparisons. (Only significant pairwise comparisons are labelled). There are no statistically significant differences in alpha diversity between the different fungal treatments in the ITS data.
+```{r, fig.width=10, fig.height=5}
+alpha_res %>% imap(function(alpha_res, seq_type){
+  alpha_res %>%
+  left_join(metadata, by='SampleID') %>% 
+  rename(`Shannon's diversity` = shannon) %>%
+  ggbetweenstats(x = Fungal_Treatment, y = `Shannon's diversity`,
+          title = glue("{seq_type} Shannon's diversity comparing A. flavus treatment"),
+          plot.type = 'violin', type = 'nonparametric',
+          p.adjust.method = 'BH', pairwise.display = 'significant')}) %>%
+    wrap_plots()
+```
+<br><br><br>
+Repeated the above comparisons within each corn genotype. K49 has higher levels of Shannon's diversity compared to Mix and Tox4 treated samples, but only within CML322 corn.
+```{r, fig.width=10, fig.height=5}
+metadata %>% pull(Corn_Genotype) %>% unique() %>% map(function(corn_genotype){
+  alpha_res$`16S` %>%
+  left_join(metadata, by='SampleID') %>% 
+  filter(Corn_Genotype == corn_genotype) %>%
+  rename(`Shannon's diversity` = shannon) %>%
+  ggbetweenstats(x = Fungal_Treatment, y = `Shannon's diversity`,
+          title = corn_genotype,
+          plot.type = 'violin', type = 'nonparametric', 
+          p.adjust.method = 'BH') +
+    ggeasy::easy_plot_title_size(8)}) %>%
+  wrap_plots() +
+  plot_annotation(title = "16S Shannon's diversity comparing fungal treatments within each corn genotype")
+```
+Still no differences at the ITS level.
+```{r, fig.width=10, fig.height=5}
+metadata %>% pull(Corn_Genotype) %>% unique() %>% map(function(corn_genotype){
+  alpha_res$ITS %>%
+  left_join(metadata, by='SampleID') %>% 
+  filter(Corn_Genotype == corn_genotype) %>%
+  rename(`Shannon's diversity` = shannon) %>%
+  ggbetweenstats(x = Fungal_Treatment, y = `Shannon's diversity`,
+          title = corn_genotype,
+          plot.type = 'violin', type = 'nonparametric', 
+          p.adjust.method = 'BH') +
+    ggeasy::easy_plot_title_size(8)}) %>%
+  wrap_plots() +
+  plot_annotation(title = "ITS Shannon's diversity comparing fungal treatments within each corn genotype")
+```
+<br><br><br><br><br><br>
+No differences in alpha diversity between corn lines for 16S data, but for the ITS data B73 is showing a higher diversity.
+```{r, fig.width=10, fig.height=4}
+alpha_res %>% imap(function(alpha_res, seq_type){
+  alpha_res %>%
+  left_join(metadata, by='SampleID') %>% 
+  rename(`Shannon's diversity` = shannon) %>%
+  ggbetweenstats(x = Corn_Genotype, y = `Shannon's diversity`,
+          title = glue("{seq_type} Shannon's diversity comparing corn genotypes"),
+          plot.type = 'violin', type = 'nonparametric', 
+          p.adjust.method = 'BH')}) %>%
+  wrap_plots()
+```
+<br><br><br>
+Repeated the above comparisons within each type of fungal treatment. For the 16S data, CML322 has higher levels of Shannon's within K49 treated samples.
+```{r, fig.width=10, fig.height=8}
+metadata %>% pull(Fungal_Treatment) %>% unique() %>% map(function(fungal_treatment){
+  alpha_res$`16S` %>%
+  left_join(metadata, by='SampleID') %>% 
+  filter(Fungal_Treatment == fungal_treatment) %>%
+  rename(`Shannon's diversity` = shannon) %>%
+  ggbetweenstats(x = Corn_Genotype, y = `Shannon's diversity`,
+          title = glue("{fungal_treatment}"),
+          plot.type = 'violin', type = 'nonparametric', 
+          p.adjust.method = 'BH') +
+    ggeasy::easy_plot_title_size(8)}) %>%
+  wrap_plots() +
+  plot_annotation(title = "16S Shannon's diversity comparing corn genotypes within each fungal treatment")
+```
+For the ITS data, B73 has higher levels of Shannon's within Tox4 treated samples.
+```{r, fig.width=10, fig.height=8}
+metadata %>% pull(Fungal_Treatment) %>% unique() %>% map(function(fungal_treatment){
+  alpha_res$ITS %>%
+  left_join(metadata, by='SampleID') %>% 
+  filter(Fungal_Treatment == fungal_treatment) %>%
+  rename(`Shannon's diversity` = shannon) %>%
+  ggbetweenstats(x = Corn_Genotype, y = `Shannon's diversity`,
+          title = glue("{fungal_treatment}"),
+          plot.type = 'violin', type = 'nonparametric', 
+          p.adjust.method = 'BH') +
+    ggeasy::easy_plot_title_size(8)}) %>%
+  wrap_plots() +
+  plot_annotation(title = "ITS Shannon's diversity comparing corn genotypes within each fungal treatment")
+```
+<br><br><br>
+Also compared corn genotypes within each type of tissue extraction. For the 16S data, there are no differences between corn genotypes.
+```{r, fig.width=10, fig.height=4}
+metadata %>% pull(Tissue_Extraction) %>% unique() %>% map(function(tissue_extraction){
+  alpha_res$`16S` %>%
+  left_join(metadata, by='SampleID') %>% 
+  filter(Tissue_Extraction == tissue_extraction) %>%
+  rename(`Shannon's diversity` = shannon) %>%
+  ggbetweenstats(x = Corn_Genotype, y = `Shannon's diversity`,
+          title = glue("{tissue_extraction}"),
+          plot.type = 'violin', type = 'nonparametric', 
+          p.adjust.method = 'BH') +
+    ggeasy::easy_plot_title_size(8)}) %>%
+  wrap_plots() +
+  plot_annotation(title = "16S Shannon's diversity comparing corn genotypes within each tissue extraction")
+```
+But for the ITS data, B73 has a higher Shannon's diversity within Endobiota.
+```{r, fig.width=10, fig.height=4}
+metadata %>% pull(Tissue_Extraction) %>% unique() %>% map(function(tissue_extraction){
+  alpha_res$ITS %>%
+  left_join(metadata, by='SampleID') %>% 
+  filter(Tissue_Extraction == tissue_extraction) %>%
+  rename(`Shannon's diversity` = shannon) %>%
+  ggbetweenstats(x = Corn_Genotype, y = `Shannon's diversity`,
+          title = glue("{tissue_extraction}"),
+          plot.type = 'violin', type = 'nonparametric', 
+          p.adjust.method = 'BH') +
+    ggeasy::easy_plot_title_size(8)}) %>%
+  wrap_plots() +
+  plot_annotation(title = "ITS Shannon's diversity comparing corn genotypes within each tissue extraction")
+```
+
+<br><br><br><br><br><br>
+Their is no correlation between bacteriome and myobactome alpha diversity, p-value of 0.88, correlation of 0.02 (Pearson's rho)
+```{r}
+its_16s_common_samples = intersect(alpha_res$`16S`$SampleID, alpha_res$ITS$SampleID)
+cor.test(column_to_rownames(alpha_res$`16S`, 'SampleID')[its_16s_common_samples, 'shannon'],
+    column_to_rownames(alpha_res$ITS, 'SampleID')[its_16s_common_samples, 'shannon'], 
+    method='spearman', exact=FALSE)
+```
+<br><br><br><br><br><br>
+Mock (control) samples have slightly higher diversity than flavus treated samples for the ITS data, however the 16S data shows no difference. This could be due to a large portion of the ITS sequencing in the flavus treated samples consisting of A. flavus sequences.
+```{r, fig.width=10, fig.height=4}
+alpha_res %>% imap(function(alpha_res, seq_type){
+  alpha_res %>%
+    left_join(metadata, by='SampleID') %>% 
+    mutate(flavus_treatment = if_else(Fungal_Treatment == 'Control', 'mock', 'treated'), 
+           flavus_treatment = relevel(factor(flavus_treatment), 'mock')) %>%
+    rename(`Shannon's diversity` = shannon) %>%
+    ggbetweenstats(x = flavus_treatment, y = `Shannon's diversity`,
+      title = glue("{seq_type} Shannon's diversity comparing mock vs treated"),
+      plot.type = 'violin', type = 'nonparametric',
+      p.adjust.method = 'BH')}) %>%
+    wrap_plots()
+```
+```{r, fig.width=10, fig.height=4}
+metadata %>% pull(Corn_Genotype) %>% unique() %>% map(function(corn_genotype){
+  alpha_res$`16S` %>%
+  left_join(metadata, by='SampleID') %>% 
+  filter(Corn_Genotype == corn_genotype) %>%
+  rename(`Shannon's diversity` = shannon) %>%
+  mutate(flavus_treatment = if_else(Fungal_Treatment == 'Control', 'mock', 'treated'), 
+         flavus_treatment = relevel(factor(flavus_treatment), 'mock')) %>%
+  ggbetweenstats(x = flavus_treatment, y = `Shannon's diversity`,
+          title = corn_genotype,
+          plot.type = 'violin', type = 'nonparametric', 
+          p.adjust.method = 'BH') +
+    ggeasy::easy_plot_title_size(8)}) %>%
+  wrap_plots() +
+  plot_annotation(title = "16S Shannon's diversity comparing mock vs treated within each corn genotype")
+```
+```{r, fig.width=10, fig.height=4}
+metadata %>% pull(Corn_Genotype) %>% unique() %>% map(function(corn_genotype){
+  alpha_res$ITS %>%
+  left_join(metadata, by='SampleID') %>% 
+  filter(Corn_Genotype == corn_genotype) %>%
+  rename(`Shannon's diversity` = shannon) %>%
+  mutate(flavus_treatment = if_else(Fungal_Treatment == 'Control', 'mock', 'treated'), 
+         flavus_treatment = relevel(factor(flavus_treatment), 'mock')) %>%
+  ggbetweenstats(x = flavus_treatment, y = `Shannon's diversity`,
+          title = corn_genotype,
+          plot.type = 'violin', type = 'nonparametric', 
+          p.adjust.method = 'BH') +
+    ggeasy::easy_plot_title_size(8)}) %>%
+  wrap_plots() +
+  plot_annotation(title = "ITS Shannon's diversity comparing mock vs treated within each corn genotype")
+```
+```{r, fig.width=10, fig.height=4}
+metadata %>% pull(Tissue_Extraction) %>% unique() %>% map(function(tissue_extraction){
+  alpha_res$`16S` %>%
+  left_join(metadata, by='SampleID') %>% 
+  filter(Tissue_Extraction == tissue_extraction) %>%
+  rename(`Shannon's diversity` = shannon) %>%
+  mutate(flavus_treatment = if_else(Fungal_Treatment == 'Control', 'mock', 'treated'), 
+         flavus_treatment = relevel(factor(flavus_treatment), 'mock')) %>%
+  ggbetweenstats(x = flavus_treatment, y = `Shannon's diversity`,
+          title = tissue_extraction,
+          plot.type = 'violin', type = 'nonparametric', 
+          p.adjust.method = 'BH') +
+    ggeasy::easy_plot_title_size(8)}) %>%
+  wrap_plots() +
+  plot_annotation(title = "16S Shannon's diversity comparing mock vs treated within each tissue extraction")
+```
+```{r, fig.width=10, fig.height=4}
+metadata %>% pull(Tissue_Extraction) %>% unique() %>% map(function(tissue_extraction){
+  alpha_res$ITS %>%
+  left_join(metadata, by='SampleID') %>% 
+  filter(Tissue_Extraction == tissue_extraction) %>%
+  rename(`Shannon's diversity` = shannon) %>%
+  mutate(flavus_treatment = if_else(Fungal_Treatment == 'Control', 'mock', 'treated'), 
+         flavus_treatment = relevel(factor(flavus_treatment), 'mock')) %>%
+  ggbetweenstats(x = flavus_treatment, y = `Shannon's diversity`,
+          title = tissue_extraction,
+          plot.type = 'violin', type = 'nonparametric', 
+          p.adjust.method = 'BH') +
+    ggeasy::easy_plot_title_size(8)}) %>%
+  wrap_plots() +
+  plot_annotation(title = "ITS Shannon's diversity comparing mock vs treated within each tissue extraction")
+```

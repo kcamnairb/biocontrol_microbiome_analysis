@@ -1,0 +1,478 @@
+---
+title: "16S and ITS data import"
+output:
+  html_notebook:
+    df_print: paged
+    code_folding: hide
+  editor_options: 
+    chunk_output_type: inline
+---
+
+```{r include=FALSE}
+library(qiime2R)
+library(ggeasy)
+library(phyloseq)
+library(Biostrings)
+library(ggsignif)
+library(ggeasy)
+library(ggpubr)
+library(readxl)
+library(patchwork)
+library(DESeq2)
+library(ALDEx2)
+library(microbiome) 
+library(vegan)
+library(ANCOMBC)
+library(glue)
+library(ggstatsplot)
+library(beeswarm)
+library(msa)
+library(here)
+library(ggtext)
+library(kableExtra)
+library(tidyHeatmap)
+library(SpiecEasi)
+library(NetCoMi)
+library(igraph)
+library(tidygraph)
+library(ggraph)
+library(tidyverse)
+knitr::opts_chunk$set(fig.retina = 1, dpi=450)
+options(dplyr.summarise.inform=F)
+theme_set(theme_bw())
+sessionInfo() %>%
+  capture.output(sessionInfo()) %>%
+  write_lines(here('output/session_info.txt'))
+```
+
+```{r, message = FALSE, warning = FALSE}
+metadata = read_tsv(here('data', 'metadata_merged.tsv'), col_types = cols()) %>%
+  rename(TimePoint = Timepoint) %>%
+  mutate(TimePoint = str_replace(TimePoint, '^', 'T'),
+         condition = str_c(CornVariety, FungalStrain, TissueExtraction, sep='_')) %>%
+  rename(Corn_Genotype = CornVariety, Fungal_Treatment = FungalStrain, Tissue_Extraction = TissueExtraction)
+```
+
+```{r}
+get_counts = function(.) otu_table(.) %>% as.data.frame() %>% rownames_to_column('feature_id') %>% as_tibble()
+get_tax = function(.) tax_table(.) %>% data.frame() %>% rownames_to_column('feature_id') %>% as_tibble()
+get_qza = function(filepath){read_qza(filepath)$data %>% as.data.frame() %>% rownames_to_column('SampleID')}
+get_sample_data = function(.) data.frame(sample_data(.)) %>% rownames_to_column('SampleID') %>% as_tibble()
+change_its_ids_to_match_16S = . %>% 
+  mutate(SampleID = str_replace(SampleID, '(.*?)-(.*)', '\\2-\\1'),
+         SampleID = str_replace_all(SampleID, c('-B73'='-373', '-C322'='-322')))
+change_16S_ids_to_match_ITS = . %>% 
+  mutate(SampleID = str_replace(SampleID, '(.*?)-(.*)', '\\2-\\1'),
+         SampleID = str_replace_all(SampleID, c('-373'='-B73', '-322'='-C322')))
+```
+
+```{r}
+ps = list('16S'= qza_to_phyloseq(features = here('data', '16S', 'table_wo_outliers.qza'),
+                          tree=here('data', '16S', 'rooted-tree.qza'),
+                          taxonomy=here('data', '16S', 'merged-taxonomy.qza'),
+                          metadata=here('data', '16S', 'metadata_filtered.tsv'),
+                          tmp='C:/Users/brian.mack/Downloads/tmp') %>% 
+            subset_samples(CornVariety != 'dummy' & Timepoint == '2' & TissueType == 'Ovule') %>%
+            prune_taxa(taxa_sums(.) > 0, .),
+          'ITS' = qza_to_phyloseq(features = here('data', 'ITS', 'table-no-mitochondria-no-chloroplast.qza'),
+                          tree=here('data', 'ITS', 'rooted-tree.qza'),
+                          taxonomy=here('data', 'ITS', 'merged-taxonomy.qza'),
+                          metadata=here('data', 'ITS', 'metadata_merged.tsv'),
+                          tmp='C:/Users/brian.mack/Downloads/tmp')  %>% 
+            subset_samples(CornVariety  != 'dummy' & Timepoint == '2' & TissueType == 'Ovule') %>%
+            prune_taxa(taxa_sums(.) > 0, .)
+            )
+ps = map(ps, function(.x){
+  sample_data(.x) = get_sample_data(.x) %>% 
+    rename(TimePoint = Timepoint) %>%
+    mutate(TimePoint = str_replace(TimePoint, '^', 'T'),
+           condition = str_c(CornVariety, FungalStrain, TissueExtraction, sep='_')) %>%
+    rename(Corn_Genotype = CornVariety, Fungal_Treatment = FungalStrain, Tissue_Extraction = TissueExtraction) %>%
+    group_by(condition) %>%
+    mutate(biological_rep = row_number()) %>%
+    ungroup() %>%
+    mutate(condition_w_rep = str_c(condition, biological_rep, sep='_')) %>%
+    column_to_rownames('SampleID')
+  return(.x)})
+sample_data(ps$ITS) = get_sample_data(ps$ITS) %>%
+  change_its_ids_to_match_16S() %>%
+  column_to_rownames('SampleID')
+```
+
+Removed taxa not assigned to a phylum. After removing these taxa, 1 16S samples was removed due to having total counts <= 1500.
+
+```{r}
+ps_phylum_filt = list('16S' = subset_taxa(ps$`16S`, !is.na(Phylum) & 
+                                            !Phylum %in% c('', 'uncharacterized', 'unidentified') & 
+                                            !Kingdom %in% c('d__Eukaryota')) %>% 
+                        prune_samples(sample_sums(.) >= 1500, .) %>% prune_taxa(taxa_sums(.) > 0, .),
+                      'ITS' = subset_taxa(ps$ITS, !is.na(Phylum) & 
+                               !Phylum %in% c("", 'uncharacterized', 'unidentified')) %>% 
+                        prune_samples(sample_sums(.) >= 1500, .) %>% prune_taxa(taxa_sums(.) > 0, .))
+ps_phylum_filt_tax = ps_phylum_filt %>% map(get_tax)
+ps_phylum_filt_counts = ps_phylum_filt %>% map(get_counts)
+ps_phylum_filt_ra = map(ps_phylum_filt, ~transform_sample_counts(.x, function(x){x / sum(x)}))
+ps_phylum_filt
+```
+```{r}
+ps_phylum_filt %>% imap(function(ps_phylum_filt, seq_type){
+  ps_phylum_filt %>% get_tax() %>%
+    summarize(across(-feature_id, ~sum(!is.na(.x))/ n())) %>%
+    round(2) %>%
+    pivot_longer(everything(), names_to = 'Taxonomic rank', values_to = seq_type)
+  }) %>%
+  reduce(full_join, by='Taxonomic rank') %>%
+  kbl(format = 'html', caption='Fraction of ASVs classified at each rank') %>%
+  kable_classic(full_width = F, html_font = "Times New Roman") 
+```
+
+```{r, fig.height=6}
+ps_phylum_filt %>% imap(function(ps_phylum_filt, seq_type){
+  ps_phylum_filt %>% sample_sums() %>% enframe(name = 'SampleID', value = 'total_counts') %>%
+    left_join(metadata, by='SampleID') %>%
+    mutate(seq_type = seq_type)
+  }) %>%
+  bind_rows() %>%
+  ggplot(aes(x=condition, y=total_counts)) +
+  geom_boxplot(outlier.shape = NA) +
+  ggbeeswarm::geom_quasirandom(alpha = 0.3, width=0.2, groupOnX=TRUE) +
+  facet_wrap(~seq_type, ncol=1, scales = 'free') +
+  scale_y_continuous(labels = scales::comma) +
+  labs(title='Total number of counts for each sample') +
+  ggeasy::easy_rotate_x_labels() +
+  ggeasy::easy_center_title()
+```
+
+<br><br><br>
+
+Rarefying to 1569 counts.
+
+```{r, warning=FALSE, message=FALSE}
+ps_phylum_filt_rarefied =  ps_phylum_filt %>% map(
+  ~rarefy_even_depth(.x, sample.size = 1569, rngseed=1100 , replace=FALSE) %>%
+     prune_taxa(taxa_sums(.) > 0, .))
+ps_phylum_filt_rarefied
+```
+
+<br><br><br><br><br><br>
+
+```{r, fig.width=12}
+prev = map(ps_phylum_filt_ra,
+            function(ps_phylum_filt_ra){
+              relative_counts = ps_phylum_filt_ra %>% get_counts()
+              tax = ps_phylum_filt_ra %>% get_tax()
+              relative_counts %>% 
+                reframe(feature_id = feature_id,
+                         prevalence = rowSums(.> 0) -1, #subtracted 1 because feature_id column is always counted
+                         total_relative_abundance = taxa_sums(ps_phylum_filt_ra), 
+                         Phylum = tax$Phylum,
+                         Genus = tax$Genus,
+                         Species = tax$Species)})
+prev_plots = prev %>% imap(function(prev, seq_type){
+  prev %>% 
+    mutate(prevalence = prevalence / nsamples(ps_phylum_filt[[seq_type]])) %>%
+  ggplot(aes(total_relative_abundance, prevalence, color=Phylum, text=glue('Genus: {Genus}<br>Species: {Species}'))) +
+    geom_hline(yintercept = 0.05, alpha = 0.5, linetype = 2) + 
+    geom_point(size = 2, alpha = 0.6) +
+    scale_x_log10() + xlab("Total Relative Abundance") + ylab("Prevalence [Fraction Samples]") +
+    facet_wrap(~Phylum) +
+    labs(title = glue('{seq_type} ASV Prevalence')) +
+    theme_gray() +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(legend.position="none")})
+```
+
+```{r, out.width=12}
+prev_plots$`16S` %>% plotly::ggplotly()
+```
+```{r, fig.width=12, fig.height=4}
+prev_plots$ITS %>% plotly::ggplotly()
+```
+Predominant phyla
+```{r}
+ps_phyla = map(ps_phylum_filt, 
+               function(ps_phylum_filt){
+                 ps_phyla = tax_glom(ps_phylum_filt, "Phylum", NArm = TRUE)
+                 prevalenceThreshold =  0.05 * nsamples(ps_phyla)
+                 ps_phyla = ps_phyla %>% 
+                   get_counts() %>% 
+                   summarise(feature_id = feature_id,
+                             prevalence = rowSums(.> 0),
+                             TotalAbundance = taxa_sums(ps_phyla)) %>%
+                   filter(prevalence >= prevalenceThreshold) %>% 
+                   pull(feature_id) %>%
+                   prune_taxa(., ps_phyla) %>%
+                   prune_samples(sample_sums(.) >= 500, .) %>% 
+                   prune_taxa(taxa_sums(.) > 0, .)
+                 sample_data(ps_phyla) = sample_data(ps_phyla) %>% 
+                   as('data.frame') %>%
+                   mutate(TissueType = fct_relevel(TissueType, 'Ovule'))
+                 return(ps_phyla)})
+ps_phyla_ra = map(ps_phyla, ~transform_sample_counts(.x, function(x){x / sum(x)}))
+prev_corn_phyla = map(ps_phyla_ra,
+            function(ps_phyla_ra){
+            relative_counts = ps_phyla_ra %>% get_counts()
+              tax = ps_phyla_ra %>% get_tax()
+              relative_counts %>% 
+                pivot_longer(-feature_id, names_to = 'SampleID', values_to = 'counts') %>%
+                left_join(metadata, by='SampleID') %>%
+                left_join(tax, by='feature_id') %>%
+                group_by(Phylum) %>%
+                mutate(prevalence_entire_dataset = sum(counts > 0) / n(),
+                       mean_relative_abundance_entire_dataset = mean(counts)) %>%
+                group_by(Phylum, Corn_Genotype) %>%
+                summarize(prevalence = sum(counts > 0) / n(),
+                          mean_relative_abundance = mean(counts),
+                          prevalence_entire_dataset = first(prevalence_entire_dataset),
+                          mean_relative_abundance_entire_dataset = first(mean_relative_abundance_entire_dataset)) %>%
+                ungroup()})
+prev_corn_phyla$`16S` %>% 
+  rename(total = mean_relative_abundance_entire_dataset) %>%
+  distinct(Phylum, Corn_Genotype, mean_relative_abundance, total) %>%
+  mutate(mean_relative_abundance= round(mean_relative_abundance, 3),
+         total = round(total, 3)) %>%
+  pivot_wider(names_from = Corn_Genotype, values_from = mean_relative_abundance) %>%
+  filter(total >= 0.01) %>%
+  arrange(desc(total)) %>%
+  kbl(format = 'html', col.names = c('Phylum', 'Total Relative Abundance', 
+                                     'Relative abundance B73', 'Relative abundance CML322')) %>%
+  kable_classic(full_width = F, html_font = "Times New Roman")
+prev_corn_phyla$ITS %>% 
+  rename(total = mean_relative_abundance_entire_dataset) %>%
+  distinct(Phylum, Corn_Genotype, mean_relative_abundance, total) %>%
+  mutate(mean_relative_abundance= round(mean_relative_abundance, 3),
+         total = round(total, 3)) %>%
+  pivot_wider(names_from = Corn_Genotype, values_from = mean_relative_abundance) %>%
+  #filter(total >= 0.01) %>%
+  arrange(desc(total)) %>%
+  kbl(format = 'html', col.names = c('Phylum', 'Total Relative Abundance', 
+                                     'Relative abundance B73', 'Relative abundance CML322')) %>%
+  kable_classic(full_width = F, html_font = "Times New Roman")
+```
+<br><br><br> Removed taxa that are present in less than 5% of samples for ASV level dataset. This will be used for differential abundance testing at ASV level.
+```{r}
+ps_prevf = map2(ps_phylum_filt, prev,
+               function(ps_phylum_filt, prev){
+                 prevalenceThreshold =  0.05 * nsamples(ps_phylum_filt)
+                 keepTaxa = filter(prev, prevalence >= prevalenceThreshold) %>% 
+                   pull(feature_id)
+                 prune_taxa(keepTaxa, ps_phylum_filt) %>%
+                   prune_samples(sample_sums(.) >= 500, .) %>% 
+                   prune_taxa(taxa_sums(.) > 0, .)})
+ps_prevf_ra = map(ps_prevf, ~transform_sample_counts(.x, function(x){x / sum(x)}))
+ps_prevf_clr = map(ps_prevf, microbiome::transform, 'clr')
+ps_prevf_alr = map(ps_prevf, microbiome::transform, 'alr', shift=1)
+ps_prevf
+```
+
+<br><br><br> Agglomerated counts at both genus level and species level.
+
+```{r}
+ps_genus = map(ps_phylum_filt, 
+               function(ps_phylum_filt){
+                 ps_genus = tax_glom(ps_phylum_filt, "Genus", NArm = TRUE)
+                 prevalenceThreshold =  0.05 * nsamples(ps_genus)
+                 ps_genus = ps_genus %>% 
+                   get_counts() %>% 
+                   summarise(feature_id = feature_id,
+                             prevalence = rowSums(.> 0),
+                             TotalAbundance = taxa_sums(ps_genus)) %>%
+                   filter(prevalence >= prevalenceThreshold) %>% 
+                   pull(feature_id) %>%
+                   prune_taxa(., ps_genus) %>%
+                   prune_samples(sample_sums(.) >= 500, .) %>% 
+                   prune_taxa(taxa_sums(.) > 0, .)
+                 sample_data(ps_genus) = sample_data(ps_genus) %>% 
+                   as('data.frame') %>%
+                   mutate(TissueType = fct_relevel(TissueType, 'Ovule'))
+                 return(ps_genus)})
+ps_genus_ra = map(ps_genus, ~transform_sample_counts(.x, function(x){x / sum(x)}))
+ps_genus_clr = map(ps_genus, microbiome::transform, 'clr')
+ps_genus_alr = map(ps_genus, microbiome::transform, 'alr', shift=1)
+ps_species = map(ps_phylum_filt, 
+               function(ps_phylum_filt){
+                 ps_species = tax_glom(ps_phylum_filt, "Species", NArm = TRUE)
+                 prevalenceThreshold =  0.05 * nsamples(ps_species)
+                 ps_species = ps_species %>% 
+                   get_counts() %>% 
+                   summarise(feature_id = feature_id,
+                             prevalence = rowSums(.> 0),
+                             TotalAbundance = taxa_sums(ps_species)) %>%
+                   filter(prevalence >= prevalenceThreshold) %>% 
+                   pull(feature_id) %>%
+                   prune_taxa(., ps_species) %>%
+                   prune_samples(sample_sums(.) >= 500, .) %>% 
+                   prune_taxa(taxa_sums(.) > 0, .)
+                 sample_data(ps_species) = sample_data(ps_species) %>% 
+                   as('data.frame') %>%
+                   mutate(TissueType = fct_relevel(TissueType, 'Ovule'))
+                 return(ps_species)})
+ps_species_ra = map(ps_species, ~transform_sample_counts(.x, function(x){x / sum(x)}))
+ps_species_clr = map(ps_species, microbiome::transform, 'clr')
+ps_species_alr = map(ps_species, microbiome::transform, 'alr', shift=1)
+```
+
+Most prevalent genera
+```{r}
+prev_corn_genus = map(ps_genus_ra,
+            function(ps_genus_ra){
+            relative_counts = ps_genus_ra %>% get_counts()
+              tax = ps_genus_ra %>% get_tax()
+              relative_counts %>% 
+                pivot_longer(-feature_id, names_to = 'SampleID', values_to = 'counts') %>%
+                left_join(metadata, by='SampleID') %>%
+                left_join(tax, by='feature_id') %>%
+                group_by(Genus) %>%
+                mutate(prevalence_entire_dataset = sum(counts > 0) / n(),
+                       mean_relative_abundance_entire_dataset = mean(counts)) %>%
+                group_by(Genus, Corn_Genotype) %>%
+                summarize(prevalence = sum(counts > 0) / n(),
+                          mean_relative_abundance = mean(counts),
+                          prevalence_entire_dataset = first(prevalence_entire_dataset),
+                          mean_relative_abundance_entire_dataset = first(mean_relative_abundance_entire_dataset)) %>%
+                ungroup()})
+prev_corn_genus$`16S` %>% 
+  rename(total = mean_relative_abundance_entire_dataset) %>%
+  distinct(Genus, Corn_Genotype, mean_relative_abundance, total) %>%
+  mutate(mean_relative_abundance= round(mean_relative_abundance, 3),
+         total = round(total, 3)) %>%
+  pivot_wider(names_from = Corn_Genotype, values_from = mean_relative_abundance) %>%
+  filter(total >= 0.01) %>%
+  arrange(desc(total)) %>%
+  kbl(format = 'html', col.names = c('Genus', 'Total Relative Abundance', 
+                                     'Relative abundance B73', 'Relative abundance CML322')) %>%
+  kable_classic(full_width = F, html_font = "Times New Roman")
+prev_corn_genus$ITS %>% 
+  rename(total = mean_relative_abundance_entire_dataset) %>%
+  distinct(Genus, Corn_Genotype, mean_relative_abundance, total) %>%
+  mutate(mean_relative_abundance= round(mean_relative_abundance, 3),
+         total = round(total, 3)) %>%
+  pivot_wider(names_from = Corn_Genotype, values_from = mean_relative_abundance) %>%
+  #filter(total >= 0.01) %>%
+  arrange(desc(total)) %>%
+  kbl(format = 'html', col.names = c('Genus', 'Total Relative Abundance', 
+                                     'Relative abundance B73', 'Relative abundance CML322')) %>%
+  kable_classic(full_width = F, html_font = "Times New Roman")
+```
+Most prevalent species
+```{r}
+prev_corn_species = map(ps_species_ra,
+            function(ps_species_ra){
+            relative_counts = ps_species_ra %>% get_counts()
+              tax = ps_species_ra %>% get_tax()
+              relative_counts %>% 
+                pivot_longer(-feature_id, names_to = 'SampleID', values_to = 'counts') %>%
+                left_join(metadata, by='SampleID') %>%
+                left_join(tax, by='feature_id') %>%
+                group_by(Species) %>%
+                mutate(prevalence_entire_dataset = sum(counts > 0) / n(),
+                       mean_relative_abundance_entire_dataset = mean(counts)) %>%
+                group_by(Species, Corn_Genotype) %>%
+                summarize(prevalence = sum(counts > 0) / n(),
+                          mean_relative_abundance = mean(counts),
+                          prevalence_entire_dataset = first(prevalence_entire_dataset),
+                          mean_relative_abundance_entire_dataset = first(mean_relative_abundance_entire_dataset)) %>%
+                ungroup()})
+prev_corn_species$`16S` %>% 
+  rename(total = mean_relative_abundance_entire_dataset) %>%
+  distinct(Species, Corn_Genotype, mean_relative_abundance, total) %>%
+  mutate(mean_relative_abundance= round(mean_relative_abundance, 3),
+         total = round(total, 3)) %>%
+  pivot_wider(names_from = Corn_Genotype, values_from = mean_relative_abundance) %>%
+  filter(total >= 0.01) %>%
+  arrange(desc(total)) %>%
+  kbl(format = 'html', col.names = c('Species', 'Total Relative Abundance', 
+                                     'Relative abundance B73', 'Relative abundance CML322')) %>%
+  kable_classic(full_width = F, html_font = "Times New Roman")
+prev_corn_species$ITS %>% 
+  rename(total = mean_relative_abundance_entire_dataset) %>%
+  distinct(Species, Corn_Genotype, mean_relative_abundance, total) %>%
+  mutate(mean_relative_abundance= round(mean_relative_abundance, 3),
+         total = round(total, 3)) %>%
+  pivot_wider(names_from = Corn_Genotype, values_from = mean_relative_abundance) %>%
+  filter(total >= 0.01) %>%
+  arrange(desc(total)) %>%
+  kbl(format = 'html', col.names = c('Species', 'Total Relative Abundance', 
+                                     'Relative abundance B73', 'Relative abundance CML322')) %>%
+  kable_classic(full_width = F, html_font = "Times New Roman")
+```
+```{r}
+reads = list('16S' = read_qza(here('data', '16S', 'rep-seqs-filtered.qza'))$data,
+             'ITS' = read_qza(here('data', 'ITS', 'rep-seqs-filtered.qza'))$data)
+```
+
+Below are barplots of relative taxon abundances for 16S sequencing with samples grouped according to similarity using the neatmap method. 
+
+```{r, fig.width=12, fig.height=10, warning=FALSE, fig.show='hide'}
+## https://github.com/google/palette.js/blob/79a703df344e3b24380ce1a211a2df7f2d90ca22/palette.js#L802
+mpn65 = c('#ff0029','#377eb8','#66a61e','#984ea3','#00d2d5','#ff7f00','#af8d00','#7f80cd','#b3e900','#c42e60','#a65628',
+         '#f781bf','#8dd3c7','#bebada','#fb8072','#80b1d3','#fdb462','#fccde5','#bc80bd','#ffed6f','#c4eaff','#cf8c00',
+         '#1b9e77','#d95f02','#e7298a','#e6ab02','#a6761d','#0097ff','#00d067','#000000','#252525','#525252','#737373',
+         '#969696','#bdbdbd','#f43600','#4ba93b','#5779bb','#927acc','#97ee3f','#bf3947','#9f5b00','#f48758','#8caed6',
+         '#f2b94f','#eff26e','#e43872','#d9b100','#9d7a00','#698cff','#d9d9d9','#00d27e','#d06800','#009f82','#c49200',
+         '#cbe8ff','#fecddf','#c27eb6','#8cd2ce','#c4b8d9','#f883b0','#a49100','#f48800','#27d0df','#a04a9b')
+```
+
+```{r, fig.width=12, fig.height=8}
+map(rank_names(ps_genus$`16S`)[2:6], function(tax_rank){
+  df = ps_genus$`16S` %>% 
+    speedyseq::mutate_sample_data(condition = condition_w_rep) %>%
+    transform(transform = "compositional") %>%
+    aggregate_rare(level = tax_rank, detection = 0.05, prevalence = 0.05) 
+  p = plot_composition(df, x.label='condition', otu.sort = 'abundance', sample.sort='neatmap') +
+  guides(fill = guide_legend(ncol = 1)) +
+  scale_fill_manual(values=mpn65) +
+  theme_minimal() + 
+  theme(axis.text.x=element_text(angle=90,hjust=0, vjust=0.5)) +
+  labs(x = "Sample condition",
+       y = "Relative abundance",
+       title = glue("16S Relative abundance at {tax_rank} level"), 
+       fill = tax_rank)
+     p %>% plotly::ggplotly()
+})
+```
+
+
+<br><br><br><br><br><br> The next two sets are done with ITS counts but made the same way as above.
+
+```{r, fig.width=12, fig.height=8}
+map(rank_names(ps_genus$ITS)[2:6], function(tax_rank){
+  df = ps_genus$ITS %>% 
+    speedyseq::mutate_sample_data(condition = condition_w_rep) %>%
+    transform(transform = "compositional") %>%
+    aggregate_rare(level = tax_rank, detection = 0.05, prevalence = 0.05) 
+  p = plot_composition(df, x.label='condition', otu.sort = 'abundance', sample.sort='neatmap') +
+  guides(fill = guide_legend(ncol = 1)) +
+  scale_fill_manual(values=mpn65) +
+  theme_minimal() + 
+  theme(axis.text.x=element_text(angle=90,hjust=0, vjust=0.5)) +
+  labs(x = "Sample condition",
+       y = "Relative abundance",
+       title = glue("ITS Relative abundance at {tax_rank} level"), 
+       fill = tax_rank)
+  p %>% plotly::ggplotly()
+})
+```
+
+
+```{r, fig.width=15, fig.height=8, warning=FALSE}
+prune_taxa(names(sort(taxa_sums(ps_genus_ra$`16S`),decreasing = TRUE)[1:30]), ps_genus_ra$`16S`) %>%
+  speedyseq::plot_heatmap(method = "NMDS", distance = "bray", sample.label = 'condition', taxa.label='Genus') +
+  theme(axis.text.x=element_text(angle=90,hjust=0, vjust=0.5, size = 10),
+        strip.text.x = element_text(size = 16), plot.title = element_text(size=22)) +
+  labs(title = '16S Heatmap of top 30 most abundant genera')
+```
+
+<br><br><br><br><br><br>
+
+```{r, fig.width=15, fig.height=8, warning=FALSE}
+prune_taxa(names(sort(taxa_sums(ps_genus_ra$ITS),decreasing = TRUE)[1:30]), ps_genus_ra$ITS) %>%
+  speedyseq::plot_heatmap(method = "NMDS", distance = "bray", sample.label = 'condition', taxa.label='Genus') +
+  theme(axis.text.x=element_text(angle=90,hjust=0, vjust=0.5, size = 10),
+        strip.text.x = element_text(size = 16), plot.title = element_text(size=22)) +
+  labs(title = 'ITS Heatmap of top 30 most abundant genera')
+```
+```{r}
+save.image(here('src/16_and_ITS_import.RData'))
+```
+

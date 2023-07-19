@@ -1,0 +1,9 @@
+feature_id,Genus,CML322_vs_B73,K49_vs_Control,Mix_vs_Control,Tox4_vs_Control,Epibiota_vs_Endobiota,Corn_GenotypeCML322:Fungal_TreatmentK49,Corn_GenotypeCML322:Fungal_TreatmentMix,Corn_GenotypeCML322:Fungal_TreatmentTox4,K49_vs_Mix,Tox4_vs_Mix,Tox4_vs_K49,Kingdom,Phylum,Class,Order,Family,Species,ecosystem_category,ecosystem_subtype,sample_collection_site
+45c14d2e5d588e80ecf3d810ed72dc7c,Ceriporia,-0,1.59,0,0,-0.81,-0,-0,-0,0,0,0,Fungi,Basidiomycota,Agaricomycetes,Polyporales,Meruliaceae,Ceriporia_lacerata,NA,NA,NA
+e1b6dfa14ab15d95192ee8439b3989af,Meyerozyma,-0,-5.46,-8.42,-0,-0,-0,0,-0,0,6.18,4.03,Fungi,Ascomycota,Saccharomycetes,Saccharomycetales,Debaryomycetaceae,Meyerozyma_caribbica,NA,NA,NA
+cc359c1b499ea069ff2bf454bb9c0e16,Sarocladium,3.87,0,3.36,-0,0,-0,-6.13,-6.7,0,0,0,Fungi,Ascomycota,Sordariomycetes,Hypocreales,Hypocreales_fam_Incertae_sedis,Sarocladium_zeae,NA,NA,NA
+0921002c67fc437442b519a8cc5f9317,Trichoderma,0,3.16,0,11.98,-0,-0,0,-13.45,0,11.48,9.47,Fungi,Ascomycota,Sordariomycetes,Hypocreales,Hypocreaceae,NA,NA,NA,NA
+4624dd9cb6d36815155fba1b6ef9c811,Penicillium,-4.85,-4.31,-7.49,-0,0,0,5.95,-0,0,4.36,1.99,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,Aspergillaceae,Penicillium_ochrosalmoneum,NA,NA,NA
+72baecca7bfde7585dc365927414c490,Talaromyces,-0,-0,-0,5.86,0,-0,-0,-9.83,0,8.53,7.69,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,Trichocomaceae,NA,NA,NA,NA
+06ee4aa94b2b7521c7b13c1fb07879bf,Aspergillus,-4.25,0,2.75,0,-0,6.46,0,6.98,-2.12,-2.77,0,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,Aspergillaceae,Aspergillus_flavus,NA,NA,NA
+d0e6fb65c73f76dc8402dec90cf15f72,Alternaria,0,0,0,0,0,0,0,0,1.28,1.53,0,Fungi,Ascomycota,Dothideomycetes,Pleosporales,Pleosporaceae,NA,NA,NA,NA

@@ -1,0 +1,35 @@
+feature_id,Species,CML322_vs_B73,K49_vs_Control,Mix_vs_Control,Tox4_vs_Control,Epibiota_vs_Endobiota,Corn_GenotypeCML322:Fungal_TreatmentK49,Corn_GenotypeCML322:Fungal_TreatmentMix,Corn_GenotypeCML322:Fungal_TreatmentTox4,K49_vs_Mix,Tox4_vs_Mix,Tox4_vs_K49,Kingdom,Phylum,Class,Order,Family,Genus,ecosystem_category,ecosystem_subtype,sample_collection_site
+a56b3b9cb1fe7ef8af0e871de184a42a,Williamsia_sp.,0,0,0,0,0,-4.32,-0,-0,0,0,0,d__Bacteria,Actinobacteriota,Actinobacteria,Corynebacteriales,Nocardiaceae,Williamsia,NA,NA,NA
+e2bfa988bf31a54a4cf2a855bdf871b9,Rhodococcus_hoagii,-0,0,0,0,-0,5.21,0,-0,0,0,0,d__Bacteria,Actinobacteriota,Actinobacteria,Corynebacteriales,Nocardiaceae,Rhodococcus,NA,NA,NA
+d703bd78333a16c13488ed96675f4af6,uncultured_bacterium,0,-0,0,-0,0,0,-0,-0,0,0,0,d__Bacteria,Actinobacteriota,Actinobacteria,Propionibacteriales,Propionibacteriaceae,Marinilutecoccus,NA,NA,NA
+c5570c72a6a36a33c8092188a1f271a2,Staphylococcus_sciuri,-0,5.22,-0,0,0,-7.94,0,-0,6,0,0,d__Bacteria,Firmicutes,Bacilli,Staphylococcales,Staphylococcaceae,Staphylococcus,NA,NA,NA
+eaa57f77edaae985a5784f41ece4ce33,Lactococcus_garvieae,-9.57,-10.4,-10.1,-9.47,-0,6.48,9.75,9.12,0,0,0,d__Bacteria,Firmicutes,Bacilli,Lactobacillales,Streptococcaceae,Lactococcus,NA,NA,NA
+b4643cd3bf499cebc8dae74bc38b11b0,Enterococcus_mundtii,0,-0,0,0,-1.52,0,0,0,0,0,0,d__Bacteria,Firmicutes,Bacilli,Lactobacillales,Enterococcaceae,Enterococcus,NA,NA,NA
+ddc882174457cf0991ccbbdd4dffc9dd,Listeria_grayi,-8.49,-8.67,-8.4,0,-0,5.4,8.62,-0,-0,12.13,12.23,d__Bacteria,Firmicutes,Bacilli,Lactobacillales,Listeriaceae,Listeria,NA,NA,NA
+1b7377b3a42affa7b9568561954b10ae,uncultured_bacterium,-0,0,0,-0,-0,5.4,0,0,0,0,0,d__Bacteria,Bacteroidota,Bacteroidia,Chitinophagales,Chitinophagaceae,Niabella,NA,NA,NA
+fa3982edce2a274f8a70d156732c0db9,Chitinophaga_sedimenti,0,-0,0,0,-1.24,0,0,0,0,0,0,d__Bacteria,Bacteroidota,Bacteroidia,Chitinophagales,Chitinophagaceae,Chitinophaga,NA,NA,NA
+4edaf9d47e4ba020c125b4da6845bd2e,Sphingobacterium_multivorum,-0,-0,-5.74,-0,0,6.36,0,0,3.82,0,0,d__Bacteria,Bacteroidota,Bacteroidia,Sphingobacteriales,Sphingobacteriaceae,Sphingobacterium,NA,NA,NA
+2df8226724770fad5a4f189279e56ff3,Sphingobacterium_siyangense,0,0,-0,-0,0,6.35,0,-0,0,0,0,d__Bacteria,Bacteroidota,Bacteroidia,Sphingobacteriales,Sphingobacteriaceae,Sphingobacterium,NA,NA,NA
+9de9c12ff65d9fb59f463e20eb0ab34f,Chryseobacterium_camelliae,0,0,0,-0,0,-7.07,-0,-0,0,0,0,d__Bacteria,Bacteroidota,Bacteroidia,Flavobacteriales,Weeksellaceae,Chryseobacterium,NA,NA,leaf;Schachtman Lab Soil sample
+6b3208b7b70e66df70519c8591fbcd79,Flavobacterium_anatoliense,0,-0,0,0,-0.97,6.29,-0,-0,0,0,0,d__Bacteria,Bacteroidota,Bacteroidia,Flavobacteriales,Flavobacteriaceae,Flavobacterium,NA,NA,NA
+a59bf85fa307d8ee561f12a1888ce3ee,Siphonobacter_sp.,0,-0,-0,-0,0,-6.72,-0,-0,0,0,0,d__Bacteria,Bacteroidota,Bacteroidia,Cytophagales,Cytophagaceae,Siphonobacter,NA,NA,NA
+74a98dbb0ecc6accf3cba87d53c1bc26,Dyadobacter_fermentans,0,-0,0,0,-1,0,0,0,0,0,0,d__Bacteria,Bacteroidota,Bacteroidia,Cytophagales,Spirosomaceae,Dyadobacter,NA,NA,NA
+946ee03cdd72ed749039f8e985b0bcbd,Leuconostoc_citreum,0,0,0,0,-0,-5.95,-0,-0,0,0,0,d__Bacteria,Firmicutes,Bacilli,Lactobacillales,Leuconostocaceae,Leuconostoc,NA,NA,NA
+5604fa0342bc303af53f67b588ea9e90,uncultured_bacterium,-0,-0,-0,0,-0,-0,0,-0,-0,3.64,3.63,d__Bacteria,Fusobacteriota,Fusobacteriia,Fusobacteriales,Leptotrichiaceae,Sebaldella,NA,NA,NA
+c1c5b005d1c430ed705d15396103fb0e,uncultured_Tistrella,-0,0,0,-0,0,-6.93,-0,0,0,0,0,d__Bacteria,Proteobacteria,Alphaproteobacteria,Rickettsiales,uncultured,uncultured,NA,NA,NA
+405aae4a3f3fd735f536808b809fec53,uncultured_bacterium,0,-0,0,0,-0.92,2.11,0,0,0,0,0,d__Bacteria,Proteobacteria,Alphaproteobacteria,Sphingomonadales,Sphingomonadaceae,Sphingobium,NA,NA,NA
+9a810d6b73d5f6f5eb34e4bca2cef9e1,Sphingomonas_phyllosphaerae,0,0,-0,-0,0,-6.63,-0,8.15,0,0,0,d__Bacteria,Proteobacteria,Alphaproteobacteria,Sphingomonadales,Sphingomonadaceae,Sphingomonas,NA,NA,NA
+e92459ca1ec0da513e5822982ecdf95c,Methylobacterium_komagatae,0,0,-0,-0,0,-5.15,-0,-0,0,0,0,d__Bacteria,Proteobacteria,Alphaproteobacteria,Rhizobiales,Beijerinckiaceae,Methylobacterium-Methylorubrum,NA,NA,Water sample from food factory;water sample in a food factory
+663303c64b5749b614383b0b788df635,Methylobacterium_organophilum,-0,-2.45,-0,-0,-2.62,-0,0,0,0,0,0,d__Bacteria,Proteobacteria,Alphaproteobacteria,Rhizobiales,Beijerinckiaceae,Methylobacterium-Methylorubrum,NA,NA,NA
+60f2bb2654e2dfbd2e2559c399debc68,Devosia_riboflavina,0,0,0,0,-0,5.56,0,-0,0,0,0,d__Bacteria,Proteobacteria,Alphaproteobacteria,Rhizobiales,Devosiaceae,Devosia,NA,NA,NA
+e06cd4687ed993516c7920fd9fdc377d,uncultured_bacterium,-0,-0,-0,0,-0,-3.02,0,-0,0,0,0,d__Bacteria,Proteobacteria,Alphaproteobacteria,Rhizobiales,Rhizobiaceae,uncultured,NA,NA,NA
+8b3ed69ac4c11f2a51a6643b0c6b9bdd,Pseudomonas_psychrotolerans,0,0,-0,0,0,-7.82,-0,-0,0,0,0,d__Bacteria,Proteobacteria,Gammaproteobacteria,Pseudomonadales,Pseudomonadaceae,Pseudomonas,NA,NA,NA
+22c76bdd01c7212aba6d65cffcb9d6fc,Luteibacter_sp.,0,3.08,-0,0,0,-9.91,-0,-0,3.31,0,0,d__Bacteria,Proteobacteria,Gammaproteobacteria,Xanthomonadales,Rhodanobacteraceae,Luteibacter,NA,NA,NA
+1f01c7644e962a9e26a4eaf299c804af,uncultured_bacterium,0,-0,-0,0,0,-7.18,-0,-8.13,0,0,0,d__Bacteria,Proteobacteria,Gammaproteobacteria,Xanthomonadales,Rhodanobacteraceae,Dyella,NA,NA,NA
+9f32ddda6c48028e2239d0f883822bc5,uncultured_bacterium,-0,-0,-0,10.7,-0,-0,0,-11.02,-0,12.94,13.09,d__Bacteria,Proteobacteria,Gammaproteobacteria,Oceanospirillales,Halomonadaceae,Carnimonas,NA,NA,NA
+96ed4deb9c664d57ec85532223a62a13,Acinetobacter_soli,0,0,0,-0,0,-8.32,-0,-0,0,0,0,d__Bacteria,Proteobacteria,Gammaproteobacteria,Pseudomonadales,Moraxellaceae,Acinetobacter,NA,NA,NA
+cf6c7be8681b3a3d110e9c6322bd40d4,Acinetobacter_baylyi,0,-0,0,0,-1.31,4.56,0,0,0,0,0,d__Bacteria,Proteobacteria,Gammaproteobacteria,Pseudomonadales,Moraxellaceae,Acinetobacter,NA,NA,NA
+42c4392b0f2ce815ed2c339e476acfe4,Acinetobacter_baumannii,5.93,-0,-0,-0,-0,-0,-0,-5.98,0,0,0,d__Bacteria,Proteobacteria,Gammaproteobacteria,Pseudomonadales,Moraxellaceae,Acinetobacter,NA,NA,NA
+54e01a5e41373e4b20a051055a80b6b2,Comamonas_sediminis,-0,-0,-0,-0,-0.93,7.93,0,0,0,0,0,d__Bacteria,Proteobacteria,Gammaproteobacteria,Burkholderiales,Comamonadaceae,Comamonas,Plants,Rhizosphere,transgenic sorghum/grain sorghum rhizosphere
+118a122550c6b4b427dd61d5ac59a956,Dickeya_chrysanthemi,-0,-0,-0,0,-0,-2.74,7.17,-0,0,0,0,d__Bacteria,Proteobacteria,Gammaproteobacteria,Enterobacterales,Erwiniaceae,Izhakiella,NA,NA,NA
+c21ef2aa19fee12e5fe00e7aff8c9090,Pantoea_ananatis,8.21,11.58,0,0,0,-22.24,-0,-11.62,0,0,-8.8,d__Bacteria,Proteobacteria,Gammaproteobacteria,Enterobacterales,Erwiniaceae,Pantoea,NA,NA,NA

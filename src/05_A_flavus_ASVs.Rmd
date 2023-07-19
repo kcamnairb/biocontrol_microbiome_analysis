@@ -1,0 +1,170 @@
+---
+title: "A. flavus ASVs"
+output:
+  html_notebook:
+    df_print: paged
+    code_folding: hide
+  editor_options: 
+    chunk_output_type: inline
+---
+```{r include=FALSE}
+library(qiime2R)
+library(decontam)
+library(ggeasy)
+library(phyloseq)
+library(Biostrings)
+library(ggsignif)
+library(ggeasy)
+library(ggpubr)
+library(readxl)
+library(patchwork)
+library(pairwiseAdonis)
+library(DESeq2)
+library(ALDEx2)
+library(microbiome) 
+library(vegan)
+library(ANCOMBC)
+library(metagMisc)
+library(glue)
+library(ggstatsplot)
+library(beeswarm)
+library(msa)
+library(here)
+library(ggtext)
+library(kableExtra)
+library(tidyHeatmap)
+library(SpiecEasi)
+library(NetCoMi)
+library(igraph)
+library(tidygraph)
+library(ggraph)
+library(tidyverse)
+knitr::opts_chunk$set(fig.retina = 1, dpi=450)
+options(dplyr.summarise.inform=F)
+theme_set(theme_bw())
+load(here('src/16_and_ITS_differential_abundance.RData'))
+```
+
+There were 6 different A. flavus ASVs identified with a prevalence over 5%, but only two A.flavus ASVs were present that had a relative abundance greater than 1% in any sample.  These two ASVs only differ by one nucleotide out of the 160 bp. The ASV 06ee4aa94b2b7521c7b13c1fb07879bf identified in the K49 treatments matches the K49 genome identically, and the ASV f238a589635f01ddc3a300a2f6e63322 in the Tox4 treatments matches the Tox4 sequence that was Sanger sequenced. These two ASVs make up a substantial portion of the ITS counts. Each respective ASV in K49 and Tox4 treatments has a median relative abundance of 85% and 43% respectively. In the mix treated samples the K49 ASV is higher in predominant with a median relative abundance of 32% compared to 14% for the Tox4 ASV.
+```{r, fig.width=6, fig.height=3}
+flavus_tax = ps_prevf_ra$ITS %>% get_tax() %>% filter(str_detect(Species, 'Aspergillus_flavus'))
+flavus_counts = ps_prevf_ra$ITS %>% get_counts() %>% semi_join(flavus_tax, by='feature_id') 
+flavus_counts %>%
+  pivot_longer(-feature_id, names_to = 'SampleID', values_to = 'relative_counts') %>%
+  left_join(metadata, by='SampleID') %>%
+  group_by(feature_id, Fungal_Treatment) %>%
+  summarize(median_rel_counts = median(relative_counts) %>% round(2))
+flavus_counts %>%
+  filter(feature_id %in% c('f238a589635f01ddc3a300a2f6e63322', '06ee4aa94b2b7521c7b13c1fb07879bf')) %>%
+  mutate(feature_id = str_replace_all(feature_id, c('06ee4aa94b2b7521c7b13c1fb07879bf'= 'K49_ASV', 
+                           'f238a589635f01ddc3a300a2f6e63322' ='Tox4_ASV'))) %>%
+  pivot_longer(-feature_id, names_to = 'SampleID', values_to = 'relative_counts') %>%
+  left_join(metadata, by='SampleID') %>%
+  ggplot(aes(Fungal_Treatment, relative_counts, fill = feature_id)) +
+  geom_boxplot(outlier.shape = NA) +
+  ggbeeswarm::geom_quasirandom(alpha = 0.3, width=0.1, groupOnX = TRUE, dodge.width=0.9) +
+  facet_wrap( ~ Corn_Genotype) +
+  theme(axis.text.x=element_text(angle=90,hjust=1)) +
+  labs(title='Relative abundance of A. flavus ASVs', y='relative abundance')
+```
+
+<br><br><br>
+The differential abundance results at the ASV level show that there is a significant genotype-treatment interaction effect for the K49 ASV in the K49 treatment for CML322.
+```{r, fig.width=5, fig.height=3.5}
+ancom_res_asv_df$ITS %>%
+  filter(feature_id %in% c('f238a589635f01ddc3a300a2f6e63322', '06ee4aa94b2b7521c7b13c1fb07879bf')) %>%
+  mutate(feature_id = str_replace_all(feature_id, c('06ee4aa94b2b7521c7b13c1fb07879bf'= 'K49_ASV', 
+                           'f238a589635f01ddc3a300a2f6e63322' ='Tox4_ASV'))) %>% 
+    mutate(comparison = factor(comparison,
+      levels=c('CML322_vs_B73','K49_vs_Control','Mix_vs_Control','Tox4_vs_Control','Epibiota_vs_Endobiota',
+          'K49_vs_Mix','Tox4_vs_Mix','Tox4_vs_K49','Corn_GenotypeCML322:Fungal_TreatmentK49',
+          'Corn_GenotypeCML322:Fungal_TreatmentMix','Corn_GenotypeCML322:Fungal_TreatmentTox4'))) %>%
+  complete(comparison, feature_id, fill=list(log2fc=0, se=0)) %>%
+ggplot(aes(comparison, log2fc, fill = feature_id)) +
+  geom_col(position='dodge', colour="black") +
+  geom_errorbar(aes(ymin = log2fc - se, ymax = log2fc + se),
+                position = position_dodge(1), width=0.3) +
+  theme_bw()  +
+  ggeasy::easy_rotate_x_labels(side = 'right') +
+  ggeasy::easy_x_axis_labels_size(8) +
+      labs(x = NULL, y = "Log2 fold change", 
+           title = glue("Log2 fold change for A. flavus ASVs"))
+```
+<br><br><br>
+Tested whether the relative abundances of the two A. flavus ASVs are different from each other in the mix treated samples using the non-parametric Mann–Whitney U test. The test showed that they are not significantly different.
+```{r, fig.width=6, fig.height=4}
+flavus_counts %>%
+  filter(feature_id %in% c('f238a589635f01ddc3a300a2f6e63322', '06ee4aa94b2b7521c7b13c1fb07879bf')) %>%
+  mutate(feature_id = str_replace_all(feature_id, c('06ee4aa94b2b7521c7b13c1fb07879bf'= 'K49_ASV', 
+                           'f238a589635f01ddc3a300a2f6e63322' ='Tox4_ASV'))) %>%
+  pivot_longer(-feature_id, names_to = 'SampleID', values_to = 'relative_counts') %>%
+  left_join(metadata, by='SampleID') %>%
+  filter(Fungal_Treatment == 'Mix') %>%
+  ggbetweenstats(x = feature_id, y = relative_counts,
+      plot.type = 'violin', type = 'nonparametric',
+      p.adjust.method = 'BH',
+      title='Relative abundance of A. flavus ASVs in Mix treated samples')
+```
+<br><br><br>
+Tested whether the relative abundances of the two A. flavus ASVs are different within the two corn genotypes using the non-parametric Mann–Whitney U test. The tests showed that the K49 ASV is significantly higher than the Tox4 ASV in B73, but within CML322 there was no difference.
+```{r, fig.width=10, fig.height=3}
+p1 = flavus_counts %>%
+  filter(feature_id %in% c('f238a589635f01ddc3a300a2f6e63322', '06ee4aa94b2b7521c7b13c1fb07879bf')) %>%
+  mutate(feature_id = str_replace_all(feature_id, c('06ee4aa94b2b7521c7b13c1fb07879bf'= 'K49_ASV', 
+                           'f238a589635f01ddc3a300a2f6e63322' ='Tox4_ASV'))) %>%
+  pivot_longer(-feature_id, names_to = 'SampleID', values_to = 'relative_counts') %>%
+  left_join(metadata, by='SampleID') %>%
+  filter(Fungal_Treatment == 'Mix',
+         Corn_Genotype == 'CML322') %>%
+  ggbetweenstats(x = feature_id, y = relative_counts,
+      plot.type = 'violin', type = 'nonparametric',
+      p.adjust.method = 'BH',
+      title='CML322', xlab='')
+p2 = flavus_counts %>%
+  filter(feature_id %in% c('f238a589635f01ddc3a300a2f6e63322', '06ee4aa94b2b7521c7b13c1fb07879bf')) %>%
+  mutate(feature_id = str_replace_all(feature_id, c('06ee4aa94b2b7521c7b13c1fb07879bf'= 'K49_ASV', 
+                           'f238a589635f01ddc3a300a2f6e63322' ='Tox4_ASV'))) %>%
+  pivot_longer(-feature_id, names_to = 'SampleID', values_to = 'relative_counts') %>%
+  left_join(metadata, by='SampleID') %>%
+  filter(Fungal_Treatment == 'Mix',
+         Corn_Genotype == 'B73') %>%
+  ggbetweenstats(x = feature_id, y = relative_counts,
+      plot.type = 'violin', type = 'nonparametric',
+      p.adjust.method = 'BH',
+      title='B73', xlab='')
+p1 + p2 + plot_annotation(title = 'Relative abundance of A. flavus ASVs in Mix treated samples',
+                          theme = theme(plot.title = element_text(hjust = 0.5)))
+```
+
+<br><br><br>
+1 nucleotide difference in A. flavus ASVs at position 80 in below alignment
+```{r, fig.width=8, fig.height=4}
+flavus_asv_names = flavus_counts %>% 
+  filter(feature_id %in% c('f238a589635f01ddc3a300a2f6e63322', '06ee4aa94b2b7521c7b13c1fb07879bf')) %>%
+  pull(feature_id) %>% unique()
+reads$ITS[flavus_asv_names] %>% Biostrings::writeXStringSet(here('output', 'flavus_reads.fa'))
+reads$ITS[unique(flavus_counts$feature_id)] %>% Biostrings::writeXStringSet(here('output', 'flavus_reads_all.fa'))
+flavus_asv_align = msa(reads$ITS[flavus_asv_names], "Muscle")
+print(flavus_asv_align, show='complete', showConsensus=FALSE)
+```
+```{r, fig.width=8, fig.height=4}
+flavus_tax_all = ps_phylum_filt$ITS %>% get_tax() %>% filter(str_detect(Species, 'Aspergillus_flavus'))
+flavus_counts_all = ps_phylum_filt$ITS %>% 
+  transform_sample_counts(., function(x){x / sum(x)}) %>%
+  get_counts() %>% semi_join(flavus_tax_all, by='feature_id') 
+p = flavus_counts_all %>%
+  filter(!feature_id %in% flavus_asv_names) %>%
+  pivot_longer(-feature_id, names_to = 'SampleID', values_to = 'relative_counts') %>%
+  left_join(metadata, by='SampleID') %>%
+  ggplot(aes(Fungal_Treatment, relative_counts)) +
+  geom_boxplot(outlier.shape = NA, aes(fill = Fungal_Treatment)) +
+  #ggbeeswarm::geom_quasirandom(alpha = 0.3, width=0.2) +
+  geom_jitter(size = 1.2, alpha = 0.4, width=0.1) +
+  facet_wrap(~feature_id, ncol=3) +
+  theme_bw() +
+  theme(axis.text.x=element_text(angle=90,hjust=1)) +
+  labs(title='Relative abundance of other A. flavus ASVs')
+p
+```
+
+

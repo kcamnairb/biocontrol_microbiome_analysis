@@ -1,0 +1,10 @@
+feature_id,Species,CML322_vs_B73,K49_vs_Control,Mix_vs_Control,Tox4_vs_Control,Epibiota_vs_Endobiota,Corn_GenotypeCML322:Fungal_TreatmentK49,Corn_GenotypeCML322:Fungal_TreatmentMix,Corn_GenotypeCML322:Fungal_TreatmentTox4,K49_vs_Mix,Tox4_vs_Mix,Tox4_vs_K49,Kingdom,Phylum,Class,Order,Family,Genus,ecosystem_category,ecosystem_subtype,sample_collection_site
+e1b6dfa14ab15d95192ee8439b3989af,Meyerozyma_caribbica,-0,-6.26,-8.73,-0,-0,-0,0,-0,0,5.87,3.3,Fungi,Ascomycota,Saccharomycetes,Saccharomycetales,Debaryomycetaceae,Meyerozyma,NA,NA,NA
+cc359c1b499ea069ff2bf454bb9c0e16,Sarocladium_zeae,3.97,0,0,-0,0,-0,-6.49,-0,0,0,0,Fungi,Ascomycota,Sordariomycetes,Hypocreales,Hypocreales_fam_Incertae_sedis,Sarocladium,NA,NA,NA
+4624dd9cb6d36815155fba1b6ef9c811,Penicillium_ochrosalmoneum,-6.75,-0,-0,-0,-0,0,0,0,0,0,0,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,Aspergillaceae,Penicillium,NA,NA,NA
+5845c21505005b97a2473deaa8d873da,Penicillium_oxalicum,-0,-3.51,-6.9,-0,1.96,0,5.13,-0,2.97,4.82,0,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,Aspergillaceae,Penicillium,NA,NA,NA
+f86cdfd0c874d28cdcfe7c25076d9678,Talaromyces_purpureogenus,0,0,-0,8.97,0,-0,-0,-8.51,0,8.96,6.41,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,Trichocomaceae,Talaromyces,NA,NA,NA
+b84cd3494d9e72d9f465a68d8db0bfdf,Talaromyces_aculeatus,-0,0,0,6.58,0,-0,-0,-6.33,0,6.34,0,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,Trichocomaceae,Talaromyces,NA,NA,NA
+07b3d9cb06226513a11680a166bf61a7,Aspergillus_niger,-7.84,-6.13,-7.5,-5.32,0,0,6.37,0,0,2.02,0,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,Aspergillaceae,Aspergillus,NA,NA,NA
+06ee4aa94b2b7521c7b13c1fb07879bf,Aspergillus_flavus,-3.83,0,2.96,0,-0,5.35,0,7,-1.94,-3.08,0,Fungi,Ascomycota,Eurotiomycetes,Eurotiales,Aspergillaceae,Aspergillus,NA,NA,NA
+fd6e051205bc1fe27861fff57664d99e,Sarocladium_kiliense,0,0,0,0,0,0,0,0,3.42,0,0,Fungi,Ascomycota,Sordariomycetes,Hypocreales,Hypocreales_fam_Incertae_sedis,Sarocladium,NA,NA,NA

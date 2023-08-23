@@ -97,6 +97,11 @@ ps = map(ps, function(.x){
 sample_data(ps$ITS) = get_sample_data(ps$ITS) %>%
   change_its_ids_to_match_16S() %>%
   column_to_rownames('SampleID')
+ps %>% imap(~get_counts(.x) %>% 
+              left_join(get_tax(.x), by='feature_id') %>%
+              rename(all_of(get_sample_data(.x) %>% pull(SampleID, name=condition_w_rep))) %>%
+              write_csv(here(str_glue('output/raw_counts_and_taxonomy_{.y}.csv')))
+              )
 ```
 
 Removed taxa not assigned to a phylum. After removing these taxa, 1 16S samples was removed due to having total counts <= 1500.

@@ -97,7 +97,9 @@ ps = map(ps, function(.x){
 sample_data(ps$ITS) = get_sample_data(ps$ITS) %>%
   change_its_ids_to_match_16S() %>%
   column_to_rownames('SampleID')
+reads_df = reads %>% map(~tibble(sequence = as.character(.x), feature_id = names(.x)))
 ps %>% imap(~get_counts(.x) %>% 
+              left_join(reads_df[[.y]], by='feature_id') %>%
               left_join(get_tax(.x), by='feature_id') %>%
               rename(all_of(get_sample_data(.x) %>% pull(SampleID, name=condition_w_rep))) %>%
               write_csv(here(str_glue('output/raw_counts_and_taxonomy_{.y}.csv')))
@@ -119,6 +121,11 @@ ps_phylum_filt_counts = ps_phylum_filt %>% map(get_counts)
 ps_phylum_filt_ra = map(ps_phylum_filt, ~transform_sample_counts(.x, function(x){x / sum(x)}))
 ps_phylum_filt
 ```
+```{r}
+reads = list('16S' = read_qza(here('data', '16S', 'rep-seqs-filtered.qza'))$data,
+             'ITS' = read_qza(here('data', 'ITS', 'rep-seqs-filtered.qza'))$data)
+```
+
 ```{r}
 ps_phylum_filt %>% imap(function(ps_phylum_filt, seq_type){
   ps_phylum_filt %>% get_tax() %>%
@@ -401,10 +408,7 @@ prev_corn_species$ITS %>%
                                      'Relative abundance B73', 'Relative abundance CML322')) %>%
   kable_classic(full_width = F, html_font = "Times New Roman")
 ```
-```{r}
-reads = list('16S' = read_qza(here('data', '16S', 'rep-seqs-filtered.qza'))$data,
-             'ITS' = read_qza(here('data', 'ITS', 'rep-seqs-filtered.qza'))$data)
-```
+
 
 Below are barplots of relative taxon abundances for 16S sequencing with samples grouped according to similarity using the neatmap method. 
 

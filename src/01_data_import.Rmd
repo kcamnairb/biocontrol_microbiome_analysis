@@ -46,7 +46,7 @@ sessionInfo() %>%
 ```
 
 ```{r, message = FALSE, warning = FALSE}
-metadata = read_tsv(here('data', 'metadata_merged.tsv'), col_types = cols()) %>%
+metadata = read_tsv(here('data', 'metadata.tsv'), col_types = cols()) %>%
   rename(TimePoint = Timepoint) %>%
   mutate(TimePoint = str_replace(TimePoint, '^', 'T'),
          condition = str_c(CornVariety, FungalStrain, TissueExtraction, sep='_')) %>%
@@ -70,14 +70,14 @@ change_16S_ids_to_match_ITS = . %>%
 ps = list('16S'= qza_to_phyloseq(features = here('data', '16S', 'table_wo_outliers.qza'),
                           tree=here('data', '16S', 'rooted-tree.qza'),
                           taxonomy=here('data', '16S', 'merged-taxonomy.qza'),
-                          metadata=here('data', '16S', 'metadata_filtered.tsv'),
+                          metadata=here('data', '16S', 'metadata.tsv'),
                           tmp='C:/Users/brian.mack/Downloads/tmp') %>% 
             subset_samples(CornVariety != 'dummy' & Timepoint == '2' & TissueType == 'Ovule') %>%
             prune_taxa(taxa_sums(.) > 0, .),
-          'ITS' = qza_to_phyloseq(features = here('data', 'ITS', 'table-no-mitochondria-no-chloroplast.qza'),
+          'ITS' = qza_to_phyloseq(features = here('data', 'ITS', 'table_wo_outliers.qza'),
                           tree=here('data', 'ITS', 'rooted-tree.qza'),
                           taxonomy=here('data', 'ITS', 'merged-taxonomy.qza'),
-                          metadata=here('data', 'ITS', 'metadata_merged.tsv'),
+                          metadata=here('data', 'ITS', 'metadata.tsv'),
                           tmp='C:/Users/brian.mack/Downloads/tmp')  %>% 
             subset_samples(CornVariety  != 'dummy' & Timepoint == '2' & TissueType == 'Ovule') %>%
             prune_taxa(taxa_sums(.) > 0, .)

@@ -1,4 +1,8 @@
-# Microbiota of maize kernels as influenced by Aspergillus flavus infection in susceptible and resistant inbreds
+# Data and analysis for Moore et al (in press)
+
+<!-- badges: start -->
+[![DOI](https://img.shields.io/badge/DOI-10.15482/USDA.ADC/1529555-<COLOR>.svg)](https://doi.org/10.15482/USDA.ADC/1529555)
+<!-- badges: end -->
 
 This repository contains the code and data to reproduce the figures and analyses in the paper "Microbiota of maize kernels as influenced by Aspergillus flavus infection in susceptible and resistant inbreds" by Moore et al. The paper investigates how biocontrol application affects the diversity and composition of the bacterial and fungal communities associated with maize kernels, using 16S and ITS amplicon sequencing.
 

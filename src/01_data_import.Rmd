@@ -69,14 +69,14 @@ change_16S_ids_to_match_ITS = . %>%
 ```{r}
 ps = list('16S'= qza_to_phyloseq(features = here('data', '16S', 'table_wo_outliers.qza'),
                           tree=here('data', '16S', 'rooted-tree.qza'),
-                          taxonomy=here('data', '16S', 'merged-taxonomy.qza'),
+                          taxonomy=here('data', '16S', 'taxonomy.qza'),
                           metadata=here('data', '16S', 'metadata.tsv'),
                           tmp='C:/Users/brian.mack/Downloads/tmp') %>% 
             subset_samples(CornVariety != 'dummy' & Timepoint == '2' & TissueType == 'Ovule') %>%
             prune_taxa(taxa_sums(.) > 0, .),
           'ITS' = qza_to_phyloseq(features = here('data', 'ITS', 'table_wo_outliers.qza'),
                           tree=here('data', 'ITS', 'rooted-tree.qza'),
-                          taxonomy=here('data', 'ITS', 'merged-taxonomy.qza'),
+                          taxonomy=here('data', 'ITS', 'taxonomy.qza'),
                           metadata=here('data', 'ITS', 'metadata.tsv'),
                           tmp='C:/Users/brian.mack/Downloads/tmp')  %>% 
             subset_samples(CornVariety  != 'dummy' & Timepoint == '2' & TissueType == 'Ovule') %>%

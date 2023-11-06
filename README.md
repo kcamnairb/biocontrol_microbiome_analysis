@@ -1,10 +1,14 @@
-# Data and analysis for Moore et al (in press)
+# Data and analysis for Moore et al. (2023)
 
 <!-- badges: start -->
 [![DOI](https://img.shields.io/badge/DOI-10.15482/USDA.ADC/1529555-<COLOR>.svg)](https://doi.org/10.15482/USDA.ADC/1529555)
 <!-- badges: end -->
 
-This repository contains the code and data to reproduce the figures and analyses in the paper "Microbiota of maize kernels as influenced by Aspergillus flavus infection in susceptible and resistant inbreds" by Moore et al. The paper investigates how biocontrol application affects the diversity and composition of the bacterial and fungal communities associated with maize kernels, using 16S and ITS amplicon sequencing.
+This repository contains the code and data to reproduce the figures and analyses in the manuscript
+
+Moore, Geromy G., Subbaiah Chalivendra, Brian Mack, Matthew K. Gilbert, Jeffrey William Cary, and Kanniah Rajasekaran. "Microbiota of maize kernels as influenced by Aspergillus flavus infection in susceptible and resistant inbreds." Frontiers in Microbiology 14: 1291284. doi.org/10.3389/fmicb.2023.1291284
+
+The paper investigates how biocontrol application affects the diversity and composition of the bacterial and fungal communities associated with maize kernels, using 16S and ITS amplicon sequencing.
 
 
 ## Data

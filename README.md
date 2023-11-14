@@ -23,6 +23,8 @@ The data folder contains the following files:
 - `ITS/taxonomy.qza`: A QIIME2 artifact the taxonomic assignment for each ITS ASV.
 - `ITS/rooted-tree.qza`: A QIIME2 artifact containing the phylogenetic tree for the ITS ASVs.
 - `ITS/metadata.csv`: A table with the sample information.
+  
+Raw sequencing reads are available at ENA project [PRJEB66233](https://www.ebi.ac.uk/ena/browser/view/PRJEB66233)
 
 ## Code
 
